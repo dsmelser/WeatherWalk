@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeatherWalk — best hours to walk</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚶</text></svg>"
+    />
+  </head>
+  <body>
+    <main class="app">
+      <header class="masthead">
+        <h1>Weather<span>Walk</span></h1>
+        <p class="tagline">Find the best hours to walk in the next 3 days</p>
+        <form id="zip-form" novalidate>
+          <input
+            id="zip-input"
+            name="zip"
+            autocomplete="postal-code"
+            inputmode="numeric"
+            maxlength="5"
+            placeholder="ZIP code"
+            aria-label="US ZIP code"
+          />
+          <button type="submit" id="zip-submit">Forecast</button>
+        </form>
+        <p id="place-label" class="place-label" hidden></p>
+      </header>
+
+      <div id="banner" class="banner" role="status" hidden></div>
+      <section id="status" class="status" aria-live="polite" hidden></section>
+      <section id="hero" class="hero" hidden></section>
+      <section id="chart" class="chart" aria-label="Hourly walkability chart" hidden></section>
+      <section id="windows" class="windows" aria-label="Best walking windows" hidden></section>
+
+      <footer class="footer">
+        Weather &amp; air quality by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>
+        (CC-BY 4.0) · ZIP lookup by
+        <a href="https://www.zippopotam.us/" rel="noopener">Zippopotam.us</a>
+      </footer>
+    </main>
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
