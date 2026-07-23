@@ -60,7 +60,4 @@ export interface WalkWindow {
   endIdx: number
   hours: ScoredHour[]
   meanProduct: number
-  rankScore: number
-  /** True when no hour cleared even the fair threshold — "least-bad" pick. */
-  isFallback: boolean
 }

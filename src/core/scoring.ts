@@ -126,17 +126,3 @@ export const FACTOR_LABELS: Record<keyof FactorScores, string> = {
   temp: 'temperature',
   uv: 'UV',
 }
-
-/** The factor with the lowest sub-score — what's dragging this hour down. */
-export function limitingFactor(f: FactorScores): keyof FactorScores {
-  let worst: keyof FactorScores = 'temp'
-  let val = Infinity
-  for (const k of ['aqi', 'dewPoint', 'precip', 'temp', 'uv'] as const) {
-    const v = f[k]
-    if (v != null && v < val) {
-      val = v
-      worst = k
-    }
-  }
-  return worst
-}
