@@ -1,0 +1,24 @@
+name: Request Copilot review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: copilot-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  request:
+    if: '!github.event.pull_request.draft'
+    runs-on: ubuntu-latest
+    steps:
+      - run: >
+          gh api
+          repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers
+          -f "reviewers[]=copilot-pull-request-reviewer[bot]"
+        env:
+          GH_TOKEN: ${{ github.token }}
