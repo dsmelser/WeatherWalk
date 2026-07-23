@@ -13,7 +13,7 @@ export function renderWindows(container: HTMLElement, windows: WalkWindow[]): vo
   if (windows.length === 0) {
     const empty = document.createElement('p')
     empty.className = 'windows-empty'
-    empty.textContent = 'No walk windows above 50 in the next 72 hours.'
+    empty.textContent = 'No hours in the good range in the next 72 hours.'
     container.append(title, empty)
     return
   }

@@ -110,12 +110,16 @@ export function scoreHour(h: HourData): ScoredHour {
 
 export type QualityBand = 'excellent' | 'good' | 'fair' | 'poor' | 'bad'
 
+/** Product floor of each band above "bad" — the one source of truth for the
+ * band cutoffs, also anchoring the color ramp and the walk-window threshold. */
+export const BAND_FLOORS = { poor: 0.1, fair: 0.3, good: 0.5, excellent: 0.75 } as const
+
 /** Calibration bands for the raw product (not the display score). */
 export function qualityBand(product: number): QualityBand {
-  if (product >= 0.75) return 'excellent'
-  if (product >= 0.5) return 'good'
-  if (product >= 0.3) return 'fair'
-  if (product >= 0.1) return 'poor'
+  if (product >= BAND_FLOORS.excellent) return 'excellent'
+  if (product >= BAND_FLOORS.good) return 'good'
+  if (product >= BAND_FLOORS.fair) return 'fair'
+  if (product >= BAND_FLOORS.poor) return 'poor'
   return 'bad'
 }
 

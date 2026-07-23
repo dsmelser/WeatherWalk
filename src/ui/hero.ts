@@ -9,7 +9,7 @@ export function renderHero(container: HTMLElement, windows: WalkWindow[]): void 
   if (windows.length === 0) {
     container.append(
       line('hero-label hero-label--caution', 'No good walking windows in the next 72 hours'),
-      line('hero-detail', 'Every hour scores below 50 — check the chart for the least-bad stretch.'),
+      line('hero-detail', 'No hour reaches the good range — check the chart for the least-bad stretch.'),
     )
     return
   }

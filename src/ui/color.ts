@@ -1,6 +1,9 @@
+import { BAND_FLOORS } from '../core/scoring'
+
 /** Products where each band hue is purest — the centers of the qualityBand
- * ranges in core/scoring.ts. Keep in step with those thresholds. */
-const ANCHORS = [0.05, 0.2, 0.4, 0.625, 0.875]
+ * ranges, derived from the shared floors so the ramp can't drift from them. */
+const EDGES = [0, BAND_FLOORS.poor, BAND_FLOORS.fair, BAND_FLOORS.good, BAND_FLOORS.excellent, 1]
+const ANCHORS = EDGES.slice(0, -1).map((edge, i) => (edge + EDGES[i + 1]) / 2)
 
 /**
  * Continuous fill for a raw product: a mix of the two nearest band tokens,

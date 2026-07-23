@@ -1,8 +1,9 @@
+import { BAND_FLOORS } from './scoring'
 import { addHoursIso } from './time'
 import type { ScoredHour, WalkWindow } from '../types'
 
-/** An hour belongs to a walk window when its product clears this (display >= 50). */
-export const WALK_THRESHOLD = 0.5
+/** An hour must rate at least "good" (per qualityBand) to join a walk window. */
+export const WALK_THRESHOLD = BAND_FLOORS.good
 
 /**
  * Maximal contiguous runs of hours with product >= WALK_THRESHOLD, in
