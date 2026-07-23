@@ -1,6 +1,29 @@
-/* Design tokens — reference dataviz palette (chrome/ink + CVD-validated
-   5-hue band scale). Dark values are declared under both the OS media query
-   and the data-theme scope so an explicit toggle would win both ways. */
+/* ============================================================================
+   Design tokens & theming
+   ----------------------------------------------------------------------------
+   Every color in the app is a CSS custom property ("CSS variable") declared
+   here and read elsewhere with var(--name). [post-2019] Custom properties
+   cascade and inherit like any CSS property, so redefining them in a darker
+   scope below re-themes everything — no other selector changes needed. See
+   docs/MODERN-JS-PRIMER.md.
+
+   The palette is the reference dataviz palette (chrome/ink + CVD-validated
+   5-hue band scale). --band-0 … --band-4 are the five quality-band colors
+   (bad → excellent); the chart blends between them per score (color-mix in
+   src/ui/color.ts), so they must stay in this worst-to-best order.
+
+   Theming is a three-layer cascade:
+     1. :root                     — light theme (the default)
+     2. the media query below     — dark theme when the OS asks for it,
+        UNLESS the page opted out with data-theme='light'
+     3. :root[data-theme='dark']  — dark theme forced by attribute
+   Dark values are declared under BOTH 2 and 3 so an explicit JS toggle
+   (setting data-theme on <html>) would win in either direction over the OS
+   preference. There is no toggle in the UI today; the wiring is just ready.
+
+   color-scheme tells the BROWSER which scheme the page uses, so built-in UI
+   (form controls, scrollbars) matches. [post-2019]
+   ========================================================================== */
 :root {
   color-scheme: light;
   --page: #f9f9f7;
@@ -22,6 +45,11 @@
   --band-3: #008300;
   --band-4: #eda100;
 }
+/* [post-2019] prefers-color-scheme: the OS/browser dark-mode setting.
+   :where() contributes ZERO specificity — so this rule stays at the same
+   specificity as plain :root, and the [data-theme='dark'] attribute rule
+   below can always outrank it. The :not([data-theme='light']) guard lets an
+   explicit light choice beat a dark OS. */
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
     color-scheme: dark;
@@ -43,6 +71,8 @@
     --band-4: #c98500;
   }
 }
+/* Same dark values, selectable by attribute (higher specificity than the
+   :where()-wrapped rule above, so it wins even when the OS says light). */
 :root[data-theme='dark'] {
   color-scheme: dark;
   --page: #0d0d0d;
@@ -67,7 +97,10 @@
   box-sizing: border-box;
 }
 
-/* class display rules (flex etc.) must never override the hidden attribute */
+/* class display rules (flex etc.) must never override the hidden attribute.
+   (The HTML `hidden` attribute works via a low-priority UA style; without
+   !important, any `.banner { display: flex }` would defeat it — and main.ts
+   drives all show/hide state through that attribute.) */
 [hidden] {
   display: none !important;
 }
@@ -76,10 +109,12 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--text-primary);
+  /* system-ui: whatever the OS's native UI font is — no webfont download. */
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   line-height: 1.5;
 }
 
+/* The single-column page: centered, capped width, vertical stack of cards. */
 .app {
   max-width: 980px;
   margin: 0 auto;
@@ -98,6 +133,7 @@ body {
   font-size: 30px;
   letter-spacing: -0.02em;
 }
+/* The "Walk" half of the wordmark picks up the accent color. */
 .masthead h1 span {
   color: var(--accent);
 }
@@ -111,6 +147,7 @@ body {
   gap: 8px;
 }
 #zip-input {
+  /* font: inherit — form controls don't inherit fonts by default. */
   font: inherit;
   font-size: 18px;
   letter-spacing: 0.06em;
@@ -132,6 +169,7 @@ body {
   color: #fff;
   cursor: pointer;
 }
+/* main.ts disables both while a lookup is in flight (setBusy). */
 #zip-submit:disabled,
 #zip-input:disabled {
   opacity: 0.55;
@@ -154,6 +192,8 @@ body {
   color: var(--status-critical);
   font-weight: 600;
 }
+/* The ⚠/ℹ icons are CSS generated content — the markup and the JS never
+   mention them (and screen readers generally skip ::before text). */
 .status--error p::before {
   content: '⚠ ';
 }
@@ -174,6 +214,8 @@ body {
   gap: 10px;
   background: var(--surface-1);
   border: 1px solid var(--border);
+  /* The warning color appears only as an edge stripe — calmer than a
+     full-bleed yellow background. */
   border-left: 3px solid var(--status-warning);
   border-radius: 10px;
   padding: 10px 14px;
@@ -184,6 +226,7 @@ body {
   content: 'ℹ ';
 }
 .banner button {
+  /* margin-left: auto in a flex row pushes the × to the far right. */
   margin-left: auto;
   font-size: 18px;
   line-height: 1;
@@ -195,6 +238,7 @@ body {
 }
 
 /* ---- cards ---- */
+/* The three result sections share one card look. */
 .hero,
 .chart,
 .windows {
@@ -224,6 +268,8 @@ body {
 }
 .hero-figure {
   margin: 2px 0;
+  /* [post-2019] clamp(min, preferred, max): fluid type that tracks the
+     viewport (8vw) but never leaves 40-54px. docs/MODERN-JS-PRIMER.md. */
   font-size: clamp(40px, 8vw, 54px);
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -235,17 +281,26 @@ body {
 }
 
 /* ---- chart ---- */
+/* On narrow screens the chart keeps its 560px minimum width and this
+   wrapper scrolls horizontally (see draw() in src/ui/chart.ts). */
 .chart-scroll {
   overflow-x: auto;
 }
+/* The keyboard-focusable chart area. outline: none only because the
+   :focus-visible rule below replaces it — never remove focus styling
+   without a replacement. */
 .chart-holder {
   outline: none;
 }
+/* [post-2019] :focus-visible: a ring for keyboard focus (Tab) but not for
+   mouse clicks. docs/MODERN-JS-PRIMER.md. */
 .chart-holder:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 6px;
 }
+/* SVG shapes are styled with fill/stroke instead of background/border.
+   These classes are set on the shading rects/lines built in chart.ts. */
 .chart-night {
   fill: var(--night);
 }
@@ -263,11 +318,14 @@ body {
 }
 /* Bar fill is inline (scoreColor mixes the band tokens per hour). */
 .chart-bar.is-active {
+  /* Highlight = brighten the bar's own color, so it works for every hue. */
   filter: brightness(1.18);
 }
 .chart-tick {
   fill: var(--muted);
   font-size: 11px;
+  /* [post-2019] tabular-nums: equal-width digits so columns of numbers
+     align and don't jiggle. Used on every numeric readout below too. */
   font-variant-numeric: tabular-nums;
 }
 .chart-now {
@@ -295,6 +353,7 @@ body {
   align-items: center;
   gap: 5px;
 }
+/* The small color square used in the key, tooltip, and window chips. */
 .band-swatch {
   display: inline-block;
   width: 10px;
@@ -330,6 +389,7 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
 }
+/* The scroll container: capped height, scrolls both ways if needed. */
 .table-scroll {
   overflow: auto;
   max-height: 340px;
@@ -343,6 +403,10 @@ body {
   font-size: 13px;
 }
 .table-scroll th {
+  /* [post-2019-ish] position: sticky pins the header row to the top of the
+     scrolling container while the body scrolls under it. The background is
+     required — sticky elements are transparent by default and rows would
+     show through. */
   position: sticky;
   top: 0;
   background: var(--surface-1);
@@ -356,6 +420,7 @@ body {
   padding: 4px 10px;
   border-bottom: 1px solid var(--grid);
 }
+/* .num is set by table.ts on numeric cells. */
 .table-scroll td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -368,9 +433,14 @@ body {
   color: var(--text-secondary);
 }
 .window-list {
+  /* Default <ol> numbering off — the counter below draws numbers INSIDE
+     each row instead of in the list gutter. */
   list-style: none;
   margin: 0;
   padding: 0;
+  /* CSS counters: reset here, increment per row, print via content below.
+     This is where the windows' 1/2/3 numbering comes from — there is no
+     number in the markup (see src/ui/windowsList.ts). */
   counter-reset: win;
 }
 .window-item {
@@ -402,6 +472,7 @@ body {
   font-size: 13px;
 }
 .window-chip {
+  /* Pushed to the row's right edge (auto margin in a flex row). */
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -410,6 +481,7 @@ body {
   font-weight: 600;
 }
 .window-details {
+  /* Indented to sit under the window text, past the counter number. */
   margin: 4px 0 0 1.6em;
 }
 .window-details summary {
@@ -426,6 +498,9 @@ body {
 }
 .factor-row {
   display: grid;
+  /* Three columns: fixed-width value | stretchy label | content-width
+     multiplier. The fixed first column is what keeps the ×multipliers
+     vertically aligned across rows. */
   grid-template-columns: 6.5em 1fr auto;
   gap: 8px;
   font-size: 13px;
@@ -442,6 +517,7 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* The "all factors multiplied" summary row gets a separator line. */
 .factor-row--total {
   border-top: 1px solid var(--grid);
   padding-top: 5px;
@@ -450,8 +526,12 @@ body {
 
 /* ---- tooltip ---- */
 .tooltip {
+  /* fixed = positioned in viewport coordinates, matching the
+     getBoundingClientRect math in src/ui/tooltip.ts. */
   position: fixed;
   z-index: 50;
+  /* The tooltip must never steal pointer events from the chart under it —
+     it follows the cursor, so without this it would flicker. */
   pointer-events: none;
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -493,6 +573,9 @@ body {
   color: var(--text-secondary);
 }
 
+/* Shared keyboard-focus ring for everything except the chart holder (which
+   has its own above). [post-2019] :is() groups selectors — this expands to
+   four separate :focus-visible rules. docs/MODERN-JS-PRIMER.md. */
 :is(#zip-input, .status button, .banner button, summary):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

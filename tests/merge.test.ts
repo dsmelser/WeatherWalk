@@ -3,6 +3,12 @@ import { mergeSeries, sliceNext72h } from '../src/core/merge'
 import { addHoursIso, formatHourLabel, formatWindowLabel, locationNowIso } from '../src/core/time'
 import type { AirQualitySeries, HourData, WeatherSeries } from '../src/types'
 
+/**
+ * The merge/slice pipeline stage plus the wall-clock time helpers: the
+ * timestamp-string join, null handling, the 72h slice bounds, and the
+ * formatting that must never pick up the viewer's timezone.
+ */
+
 /** Hourly local ISO timestamps starting at startIso. */
 function hourly(startIso: string, count: number): string[] {
   const [date, hh] = [startIso.slice(0, 10), Number(startIso.slice(11, 13))]

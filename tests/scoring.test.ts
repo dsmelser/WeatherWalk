@@ -14,6 +14,15 @@ import {
 } from '../src/core/scoring'
 import type { HourData } from '../src/types'
 
+/**
+ * The comfort model: curve shapes, hazard zeros, and calibration checks
+ * ("a muggy summer afternoon must score poor"). Expectations are derived
+ * from the exported constants wherever possible, so hand-tuning the
+ * constants in scoring.ts doesn't break the suite.
+ */
+
+/** A comfortable default hour; Partial<HourData> overrides just the field
+ * under test (every property optional — spread order makes overrides win). */
 function hour(overrides: Partial<HourData>): HourData {
   return {
     ts: '2026-07-17T14:00',
@@ -129,7 +138,7 @@ describe('precipFactor (the probability of staying dry)', () => {
 
 describe('scoreHour', () => {
   it('a genuinely optimal hour scores near 1.0', () => {
-    // 66°F, dry air, no rain, night, clean air
+    // optimal temperature, dry air, no rain, night, clean air
     const s = scoreHour(hour({}))
     expect(s.product).toBeGreaterThan(0.95)
   })

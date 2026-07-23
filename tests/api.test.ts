@@ -8,10 +8,15 @@ import { fetchForecast } from '../src/api/forecast'
  * would silently mis-score every hour. These pin the URLs offline.
  */
 
+/** A minimal fake of the Response object fetch resolves with. */
 function okJson(body: unknown): Response {
   return { ok: true, status: 200, json: async () => body } as Response
 }
 
+/** Replaces global fetch with a fake that records the requested URL and
+ * returns `body`. [post-2019] vi.stubGlobal is Vitest's global-swapping
+ * helper; vi.unstubAllGlobals below restores the real fetch after each
+ * test. See docs/MODERN-JS-PRIMER.md (Tooling). */
 function captureFetch(body: unknown): { url: () => URL } {
   let captured = ''
   vi.stubGlobal('fetch', async (url: RequestInfo | URL) => {

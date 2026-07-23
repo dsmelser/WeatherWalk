@@ -3,9 +3,17 @@ import { formatHourLabel, formatWindowLabel } from '../core/time'
 import { peakHour } from '../core/windows'
 import type { WalkWindow } from '../types'
 
-/** The one answer the page leads with: the next good time to walk. */
+/**
+ * The one answer the page leads with: the next good time to walk.
+ *
+ * Windows arrive in chronological order, so windows[0] is the NEXT upcoming
+ * window (not necessarily the best-scoring one — that's deliberate: "when
+ * can I go" beats "when is it theoretically optimal"). The headline hour is
+ * that window's peak.
+ */
 export function renderHero(container: HTMLElement, windows: WalkWindow[]): void {
   container.replaceChildren()
+  // Empty state: no hour in the next 72h clears the "good" threshold.
   if (windows.length === 0) {
     container.append(
       line('hero-label hero-label--caution', 'No good walking windows in the next 72 hours'),
@@ -25,6 +33,7 @@ export function renderHero(container: HTMLElement, windows: WalkWindow[]): void 
   container.append(line('hero-label', 'Next good time to walk'), figure(formatHourLabel(peak.ts)), line('hero-detail', windowText))
 }
 
+/** A styled <p> — the hero is just three stacked paragraphs. */
 function line(className: string, text: string): HTMLParagraphElement {
   const p = document.createElement('p')
   p.className = className
@@ -32,6 +41,7 @@ function line(className: string, text: string): HTMLParagraphElement {
   return p
 }
 
+/** The big headline number/time (styled by .hero-figure in styles.css). */
 function figure(text: string): HTMLParagraphElement {
   const p = document.createElement('p')
   p.className = 'hero-figure'

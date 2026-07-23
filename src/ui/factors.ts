@@ -1,12 +1,14 @@
 import { FACTOR_LABELS } from '../core/scoring'
 import type { ScoredHour } from '../types'
 
+/** One display row: the measured value, its label, and its [0,1] factor. */
 interface Row {
   value: string
   label: string
   factor: number | null
 }
 
+/** The five factors in display order, formatted for humans. */
 function rows(hour: ScoredHour): Row[] {
   return [
     { value: `${Math.round(hour.tempF)}°F`, label: FACTOR_LABELS.temp, factor: hour.factors.temp },
@@ -18,6 +20,7 @@ function rows(hour: ScoredHour): Row[] {
     { value: `${Math.round(hour.precipProb)}%`, label: FACTOR_LABELS.precip, factor: hour.factors.precip },
     { value: `UV ${Math.round(hour.uvIndex)}`, label: FACTOR_LABELS.uv, factor: hour.factors.uv },
     {
+      // AQI can be absent (forecast horizon) — show a dash, not a fake 0.
       value: hour.usAqi == null ? '—' : `AQI ${Math.round(hour.usAqi)}`,
       label: FACTOR_LABELS.aqi,
       factor: hour.factors.aqi,
@@ -30,6 +33,11 @@ function rows(hour: ScoredHour): Row[] {
  * Value leads (strong), label follows, and the ×multiplier shows how much the
  * factor contributes to the multiplicative score. All data goes in via
  * textContent — never innerHTML.
+ *
+ * This is the app's framework-free UI pattern in miniature: build elements
+ * with document.createElement, set textContent, append. The three-column
+ * alignment (value | label | multiplier) comes from CSS grid on
+ * .factor-row, not from anything in this file.
  */
 export function factorRows(hour: ScoredHour): HTMLDivElement {
   const box = document.createElement('div')
@@ -46,6 +54,7 @@ export function factorRows(hour: ScoredHour): HTMLDivElement {
     const mult = document.createElement('span')
     mult.className = 'factor-mult'
     mult.textContent = r.factor == null ? 'not included' : `×${r.factor.toFixed(2)}`
+    // [post-2019] append() takes multiple nodes at once (unlike appendChild).
     row.append(value, label, mult)
     box.append(row)
   }

@@ -4,16 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WeatherWalk — best hours to walk</title>
+    <!-- Favicon with zero extra requests: an inline data: URL containing an
+         SVG that renders the 🚶 emoji as text. -->
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚶</text></svg>"
     />
   </head>
   <body>
+    <!-- This file is the app's fixed skeleton. Every dynamic section below
+         ships empty with the `hidden` attribute; src/main.ts fills each one
+         and flips `hidden` off. No template syntax — the JS builds all
+         content with document.createElement. -->
     <main class="app">
       <header class="masthead">
         <h1>Weather<span>Walk</span></h1>
         <p class="tagline">Find the best hours to walk in the next 3 days</p>
+        <!-- novalidate: main.ts does its own validation (5-digit regex) and
+             shows a friendlier error than the browser bubble.
+             inputmode="numeric" brings up the digit keyboard on phones;
+             autocomplete="postal-code" lets browsers autofill the ZIP. -->
         <form id="zip-form" novalidate>
           <input
             id="zip-input"
@@ -29,19 +39,30 @@
         <p id="place-label" class="place-label" hidden></p>
       </header>
 
+      <!-- banner: dismissible degraded-state notice (e.g. AQI unavailable) -->
       <div id="banner" class="banner" role="status" hidden></div>
+      <!-- status: progress + errors; aria-live="polite" makes screen readers
+           announce changes without interrupting -->
       <section id="status" class="status" aria-live="polite" hidden></section>
+      <!-- hero: the headline "next good time to walk" (src/ui/hero.ts) -->
       <section id="hero" class="hero" hidden></section>
+      <!-- chart: SVG bars + band key + table view (src/ui/chart.ts) -->
       <section id="chart" class="chart" aria-label="Hourly walkability chart" hidden></section>
+      <!-- windows: the walk windows list (src/ui/windowsList.ts) -->
       <section id="windows" class="windows" aria-label="Walk windows" hidden></section>
 
+      <!-- Open-Meteo's CC-BY 4.0 license requires this attribution. -->
       <footer class="footer">
         Weather &amp; air quality by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>
         (CC-BY 4.0) · ZIP lookup by
         <a href="https://www.zippopotam.us/" rel="noopener">Zippopotam.us</a>
       </footer>
     </main>
+    <!-- The shared tooltip is position: fixed (viewport coordinates), parked
+         outside <main> so no ancestor's layout or overflow can clip it. -->
     <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+    <!-- type="module" is the Vite entry point: dev serves the TS on the fly,
+         build rewrites this to the bundled JS. -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

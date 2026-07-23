@@ -1,18 +1,22 @@
+// TypeScript config. (Comments are legal here — tsconfig is JSONC and tsc
+// strips them; plain package.json can NOT take comments.)
+// Note "noEmit": tsc only TYPE-CHECKS this project; Vite does the actual
+// TS→JS compilation. `npm run build` runs both.
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "target": "ES2022", // emit/expect ES2022 syntax — fine for evergreen browsers
+    "module": "ESNext", // keep import/export as-is; the bundler handles modules
+    "lib": ["ES2022", "DOM", "DOM.Iterable"], // ambient types: modern JS + browser DOM
+    "skipLibCheck": true, // don't type-check dependencies' .d.ts files (faster)
+    "moduleResolution": "bundler", // resolve imports the way Vite does
+    "allowImportingTsExtensions": true, // lets imports omit nothing — Vite serves .ts directly
+    "isolatedModules": true, // forbid TS features that need whole-program compilation
+    "moduleDetection": "force", // treat every file as a module even without imports
+    "noEmit": true, // type-check only; no .js output from tsc
+    "strict": true, // all strict checks — notably null-safety (see types.ts)
+    "noUnusedLocals": true, // unused variable = compile error
+    "noUnusedParameters": true, // unused function parameter = compile error
+    "noFallthroughCasesInSwitch": true // switch cases must break/return
   },
   "include": ["src", "tests", "vite.config.ts"]
 }

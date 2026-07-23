@@ -5,10 +5,20 @@ Enter a US ZIP code, get the best hours to go for a walk in the next 72 hours.
 Every hour gets a walkability score built **multiplicatively** from five factors —
 US AQI, dew point, precipitation probability, temperature, and UV index — so one
 genuinely bad factor (hazardous air, dangerous heat) sinks the hour, while several
-mildly imperfect factors only dent it. The app shows the single best time, an
-hourly chart, and a ranked list of walk windows with per-factor breakdowns.
+mildly imperfect factors only dent it. The app shows the next good time, an
+hourly chart, and the walk windows in time order with per-factor breakdowns.
 
 Fully static and client-side: the browser talks directly to free, no-key APIs.
+
+## New to this codebase?
+
+Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — an end-to-end
+walkthrough of the pipeline, the data shapes, and the design decisions. If
+you've been away from front-end work for a while, read
+[docs/MODERN-JS-PRIMER.md](docs/MODERN-JS-PRIMER.md) first: it explains every
+post-2019 language feature, browser API, and tool this repo uses, with
+pointers to where each appears. Comments tagged `[post-2019]` throughout the
+source mark those spots inline.
 
 ## Data sources
 
@@ -28,11 +38,11 @@ timezone sees the ZIP's own clock. See `src/core/time.ts`.
 Each factor maps to a "percent comfort" in [0,1] through a smooth curve,
 judged in isolation (`src/core/scoring.ts`):
 
-- **Temperature** — an asymmetric bell around 66 °F. The cold side is wider
-  than the hot side (clothing fixes cold; nothing fixes heat): 55 °F ≈ ×0.88,
-  45 °F ≈ ×0.63, freezing ≈ ×0.30; 80 °F ≈ ×0.56, 90 °F ≈ ×0.18.
+- **Temperature** — an asymmetric bell around 71 °F. The cold side is wider
+  than the hot side (clothing fixes cold; nothing fixes heat): 55 °F ≈ ×0.77,
+  45 °F ≈ ×0.50, freezing ≈ ×0.21; 80 °F ≈ ×0.79, 90 °F ≈ ×0.34.
 - **Dew point, AQI, UV** — logistic drop-offs: comfort ≈ 1 at the harmless
-  end, 50% at a midpoint (dew 68 °F, AQI 150, UV 9), with a per-factor
+  end, 50% at a midpoint (dew 68 °F, AQI 150, UV 7), with a per-factor
   softness controlling how fast it falls.
 - **Rain** — simply the probability of staying dry (1 − p/100), so certain
   rain zeroes the hour.

@@ -10,16 +10,28 @@ import type { AirQualitySeries, HourData, WeatherSeries } from '../types'
  * Hours missing any core weather value are dropped entirely.
  */
 export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null): HourData[] {
+  // Index the AQI series by timestamp so each weather hour joins in O(1) —
+  // a Map lookup instead of scanning the air arrays per hour.
   const aqiByTs = new Map<string, number | null>()
   if (air) {
+    // [post-2019] `??` (nullish coalescing) falls back only on null/undefined
+    // — see docs/MODERN-JS-PRIMER.md. Here it normalizes a hole in the API
+    // array (undefined) to an explicit null.
     air.time.forEach((t, i) => aqiByTs.set(t, air.usAqi[i] ?? null))
   }
   const out: HourData[] = []
   for (let i = 0; i < weather.time.length; i++) {
+    // Pull each value into a local first: after the `== null` check below,
+    // TypeScript narrows these from `number | null` to `number` — checking
+    // `weather.tempF[i]` inline wouldn't narrow across later uses.
     const tempF = weather.tempF[i]
     const dewPointF = weather.dewPointF[i]
     const precipProb = weather.precipProb[i]
     const uvIndex = weather.uvIndex[i]
+    // An hour missing ANY core weather value can't be scored honestly, so it
+    // is dropped — downstream, sliceNext72h still bounds by wall clock and
+    // walkWindows refuses to span the gap, so a dropped hour never causes a
+    // silent stretch or an unearned window.
     if (tempF == null || dewPointF == null || precipProb == null || uvIndex == null) continue
     out.push({
       ts: weather.time[i],
@@ -27,7 +39,9 @@ export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null
       dewPointF,
       precipProb,
       uvIndex,
+      // Timestamp not in the AQI series at all → same null as a null entry.
       usAqi: aqiByTs.get(weather.time[i]) ?? null,
+      // The API says 1/0; the rest of the app wants a real boolean.
       isDay: weather.isDay[i] === 1,
     })
   }

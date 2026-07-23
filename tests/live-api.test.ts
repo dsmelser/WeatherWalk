@@ -11,6 +11,9 @@ import { WALK_THRESHOLD, walkWindows } from '../src/core/windows'
  * Hits the real Zippopotam and Open-Meteo APIs. Skipped unless LIVE_API=1
  * so the normal test run stays offline and deterministic:
  *   PowerShell: $env:LIVE_API='1'; npm test
+ *
+ * [post-2019] describe.runIf(condition) runs the suite only when the
+ * condition holds — otherwise it reports as skipped, not failed.
  */
 describe.runIf(process.env.LIVE_API === '1')('live API pipeline', () => {
   it('runs the full zip → scored 72h → windows pipeline for Baltimore', async () => {

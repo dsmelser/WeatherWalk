@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { peakHour, walkWindows } from '../src/core/windows'
 import type { ScoredHour } from '../src/types'
 
+/**
+ * Walk-window detection: run boundaries (inclusive), the threshold edge,
+ * array edges, chronological ordering, and the wall-clock-gap split.
+ */
+
 /** Minimal ScoredHour stub — window logic only reads product (and ts for UI). */
 function stub(products: number[]): ScoredHour[] {
   return products.map((product, i) => ({

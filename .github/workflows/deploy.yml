@@ -1,20 +1,29 @@
+# CI/CD: every push to main runs tests, builds, and publishes dist/ to
+# GitHub Pages. The site never deploys with a failing test or build.
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: # manual "Run workflow" button in the Actions tab
 
+# [post-2019] OIDC-based Pages deploy: id-token lets the workflow prove its
+# identity to GitHub Pages with a short-lived token — no stored deploy
+# secret to rotate or leak. See docs/MODERN-JS-PRIMER.md (Tooling).
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Rapid pushes shouldn't race: only one Pages deploy at a time, and a newer
+# push cancels an in-flight older one.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
+  # Two-job pipeline: `build` produces an artifact, `deploy` publishes it.
+  # (The split is the shape actions/deploy-pages expects.)
   build:
     runs-on: ubuntu-latest
     steps:
@@ -23,9 +32,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # npm ci = clean install exactly from package-lock.json.
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # Hands dist/ to the deploy job as a Pages-formatted artifact.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -33,6 +44,8 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # Ties the run to the repo's github-pages environment (shows the live
+    # URL on the run page).
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

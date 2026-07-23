@@ -1,3 +1,5 @@
+# Automatically requests a GitHub Copilot code review on every PR (opened or
+# updated). Unrelated to deployment — see deploy.yml for CI/CD.
 name: Request Copilot review
 
 on:

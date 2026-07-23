@@ -5,12 +5,20 @@ import type { ScoredHour } from '../types'
 /**
  * The chart's table-view twin: every hour's values reachable without hover
  * or color perception. Collapsed by default behind a <details>.
+ *
+ * This is the accessibility strategy for the SVG chart (which is
+ * aria-hidden): rather than trying to make hand-built SVG screen-reader
+ * friendly, ship the same data as a real <table>, which assistive tech
+ * already knows how to navigate. [post-2019 usage note] <details>/<summary>
+ * is the browser's built-in, keyboard-accessible collapse widget — no JS.
  */
 export function renderTable(hours: ScoredHour[]): HTMLElement {
   const details = document.createElement('details')
   details.className = 'table-view'
   const summary = document.createElement('summary')
   summary.textContent = 'View all hours as a table'
+  // The wrapper div provides the scroll container (max-height + sticky
+  // header live on .table-scroll in styles.css).
   const wrap = document.createElement('div')
   wrap.className = 'table-scroll'
   const table = document.createElement('table')
@@ -27,6 +35,7 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
   const tbody = document.createElement('tbody')
   for (const h of hours) {
     const tr = document.createElement('tr')
+    // One formatted string per column, same order as the header row above.
     const cells = [
       formatHourLabel(h.ts),
       String(h.display),
@@ -41,6 +50,7 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
     cells.forEach((c, i) => {
       const td = document.createElement('td')
       td.textContent = c
+      // Columns 1-7 are numeric — .num right-aligns them with tabular digits.
       if (i > 0 && i < 8) td.className = 'num'
       tr.append(td)
     })
