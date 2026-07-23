@@ -1,6 +1,6 @@
-/* Design tokens — reference dataviz palette (chrome/ink + validated ordinal
-   ramp). Dark values are declared under both the OS media query and the
-   data-theme scope so an explicit toggle would win both ways. */
+/* Design tokens — reference dataviz palette (chrome/ink + CVD-validated
+   5-hue band scale). Dark values are declared under both the OS media query
+   and the data-theme scope so an explicit toggle would win both ways. */
 :root {
   color-scheme: light;
   --page: #f9f9f7;
@@ -13,13 +13,14 @@
   --border: rgba(11, 11, 11, 0.1);
   --accent: #2a78d6;
   --night: rgba(11, 11, 11, 0.05);
+  --day: rgba(237, 161, 0, 0.22);
   --status-warning: #fab219;
   --status-critical: #d03b3b;
-  --band-0: #86b6ef;
-  --band-1: #5598e7;
+  --band-0: #e34948;
+  --band-1: #4a3aa7;
   --band-2: #2a78d6;
-  --band-3: #1c5cab;
-  --band-4: #0d366b;
+  --band-3: #008300;
+  --band-4: #eda100;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
@@ -34,11 +35,12 @@
     --border: rgba(255, 255, 255, 0.1);
     --accent: #3987e5;
     --night: rgba(0, 0, 0, 0.35);
-    --band-0: #184f95;
-    --band-1: #256abf;
+    --day: rgba(250, 178, 25, 0.12);
+    --band-0: #e66767;
+    --band-1: #8a46d2;
     --band-2: #3987e5;
-    --band-3: #6da7ec;
-    --band-4: #b7d3f6;
+    --band-3: #008300;
+    --band-4: #c98500;
   }
 }
 :root[data-theme='dark'] {
@@ -53,11 +55,12 @@
   --border: rgba(255, 255, 255, 0.1);
   --accent: #3987e5;
   --night: rgba(0, 0, 0, 0.35);
-  --band-0: #184f95;
-  --band-1: #256abf;
+  --day: rgba(250, 178, 25, 0.12);
+  --band-0: #e66767;
+  --band-1: #8a46d2;
   --band-2: #3987e5;
-  --band-3: #6da7ec;
-  --band-4: #b7d3f6;
+  --band-3: #008300;
+  --band-4: #c98500;
 }
 
 * {
@@ -246,6 +249,9 @@ body {
 .chart-night {
   fill: var(--night);
 }
+.chart-daylight {
+  fill: var(--day);
+}
 .chart-grid,
 .chart-midnight {
   stroke: var(--grid);
@@ -255,21 +261,7 @@ body {
   stroke: var(--baseline);
   stroke-width: 1;
 }
-.chart-bar.band-0 {
-  fill: var(--band-0);
-}
-.chart-bar.band-1 {
-  fill: var(--band-1);
-}
-.chart-bar.band-2 {
-  fill: var(--band-2);
-}
-.chart-bar.band-3 {
-  fill: var(--band-3);
-}
-.chart-bar.band-4 {
-  fill: var(--band-4);
-}
+/* Bar fill is inline (scoreColor mixes the band tokens per hour). */
 .chart-bar.is-active {
   filter: brightness(1.18);
 }
@@ -370,6 +362,11 @@ body {
 }
 
 /* ---- windows list ---- */
+.windows-empty {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
 .window-list {
   list-style: none;
   margin: 0;

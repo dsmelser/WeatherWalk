@@ -1,6 +1,7 @@
 import { qualityBand } from '../core/scoring'
 import { formatHourLabel } from '../core/time'
 import type { ScoredHour } from '../types'
+import { scoreColor } from './color'
 import { factorRows } from './factors'
 
 /**
@@ -22,7 +23,8 @@ export function showTooltip(el: HTMLElement, hour: ScoredHour, anchorX: number, 
   const band = document.createElement('span')
   band.className = 'tooltip-band'
   const swatch = document.createElement('span')
-  swatch.className = `band-swatch band-bg-${bandIndexOf(hour.product)}`
+  swatch.className = 'band-swatch'
+  swatch.style.background = scoreColor(hour.product)
   const bandWord = document.createElement('span')
   bandWord.textContent = qualityBand(hour.product)
   band.append(swatch, bandWord)
@@ -44,10 +46,4 @@ export function showTooltip(el: HTMLElement, hour: ScoredHour, anchorX: number, 
 
 export function hideTooltip(el: HTMLElement): void {
   el.hidden = true
-}
-
-/** 0 (bad) … 4 (excellent) — indexes the ordinal color ramp. */
-export function bandIndexOf(product: number): number {
-  const order = ['bad', 'poor', 'fair', 'good', 'excellent']
-  return order.indexOf(qualityBand(product))
 }
