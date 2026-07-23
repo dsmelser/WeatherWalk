@@ -28,11 +28,13 @@ export function addHoursIso(ts: string, n: number): string {
 }
 
 function fmt12(h: number): string {
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12} ${h < 12 ? 'AM' : 'PM'}`
+  // "12 AM"/"12 PM" trip people up — say what we mean instead.
+  if (h === 0) return 'midnight'
+  if (h === 12) return 'noon'
+  return `${h % 12} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-/** "2 PM", "12 AM" */
+/** "2 PM" — with 12 o'clock spelled out as "noon" / "midnight". */
 export function formatTime(ts: string): string {
   return fmt12(wallClock(ts).getUTCHours())
 }

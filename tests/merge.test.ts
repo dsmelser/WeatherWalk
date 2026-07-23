@@ -143,8 +143,8 @@ describe('sliceNext72h', () => {
 describe('formatHourLabel', () => {
   it('formats wall-clock hours without viewer-timezone contamination', () => {
     expect(formatHourLabel('2026-07-17T14:00')).toBe('Fri 2 PM')
-    expect(formatHourLabel('2026-07-17T00:00')).toBe('Fri 12 AM')
-    expect(formatHourLabel('2026-07-17T12:00')).toBe('Fri 12 PM')
+    expect(formatHourLabel('2026-07-17T00:00')).toBe('Fri midnight')
+    expect(formatHourLabel('2026-07-17T12:00')).toBe('Fri noon')
   })
 })
 
@@ -165,7 +165,7 @@ describe('formatWindowLabel', () => {
 
   it('keeps midnight-ending windows on one day (end is exclusive)', () => {
     expect(formatWindowLabel('2026-07-17T18:00', '2026-07-17T23:00')).toBe(
-      'Fri, Jul 17 · 6 PM – 12 AM',
+      'Fri, Jul 17 · 6 PM – midnight',
     )
   })
 
