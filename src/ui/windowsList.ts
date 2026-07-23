@@ -2,15 +2,21 @@ import { qualityBand } from '../core/scoring'
 import { formatTime, formatWindowLabel } from '../core/time'
 import { peakHour } from '../core/windows'
 import type { WalkWindow } from '../types'
+import { scoreColor } from './color'
 import { factorRows } from './factors'
-import { bandIndexOf } from './tooltip'
 
 export function renderWindows(container: HTMLElement, windows: WalkWindow[]): void {
   container.replaceChildren()
-  if (windows.length === 0) return
 
   const title = document.createElement('h2')
-  title.textContent = windows[0].isFallback ? 'Least-bad option' : 'Best windows to walk'
+  title.textContent = 'Walk windows'
+  if (windows.length === 0) {
+    const empty = document.createElement('p')
+    empty.className = 'windows-empty'
+    empty.textContent = 'No hours in the good range in the next 72 hours.'
+    container.append(title, empty)
+    return
+  }
   const list = document.createElement('ol')
   list.className = 'window-list'
 
@@ -39,7 +45,8 @@ export function renderWindows(container: HTMLElement, windows: WalkWindow[]): vo
     const chip = document.createElement('span')
     chip.className = 'window-chip'
     const swatch = document.createElement('span')
-    swatch.className = `band-swatch band-bg-${bandIndexOf(w.meanProduct)}`
+    swatch.className = 'band-swatch'
+    swatch.style.background = scoreColor(w.meanProduct)
     const chipText = document.createElement('span')
     chipText.textContent = `${meanDisplay} ${qualityBand(w.meanProduct)}`
     chip.append(swatch, chipText)

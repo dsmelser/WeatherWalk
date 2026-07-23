@@ -1,7 +1,8 @@
 import { dayKey, formatDayLabel, formatTime, hourOf } from '../core/time'
 import type { ScoredHour } from '../types'
 import { renderTable } from './table'
-import { bandIndexOf, hideTooltip, showTooltip } from './tooltip'
+import { scoreColor } from './color'
+import { hideTooltip, showTooltip } from './tooltip'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -79,22 +80,20 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
 
     const svg = svgEl('svg', { width, height: HEIGHT, 'aria-hidden': 'true' })
 
-    // Night shading behind everything — contiguous runs of non-daylight hours.
-    let nightStart = -1
-    for (let i = 0; i <= hours.length; i++) {
-      const night = i < hours.length && !hours[i].isDay
-      if (night && nightStart === -1) nightStart = i
-      if (!night && nightStart !== -1) {
+    // Day/night shading behind everything — one rect per contiguous run.
+    let runStart = 0
+    for (let i = 1; i <= hours.length; i++) {
+      if (i === hours.length || hours[i].isDay !== hours[runStart].isDay) {
         svg.append(
           svgEl('rect', {
-            x: PAD_LEFT + nightStart * slotW,
+            x: PAD_LEFT + runStart * slotW,
             y: PAD_TOP - 6,
-            width: (i - nightStart) * slotW,
+            width: (i - runStart) * slotW,
             height: PLOT_H + 6,
-            class: 'chart-night',
+            class: hours[runStart].isDay ? 'chart-daylight' : 'chart-night',
           }),
         )
-        nightStart = -1
+        runStart = i
       }
     }
 
@@ -123,7 +122,11 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     bars = hours.map((h, i) => {
       const x = PAD_LEFT + i * slotW + (slotW - barW) / 2
       const barH = Math.max(1.5, (h.display / 100) * PLOT_H)
-      const bar = svgEl('path', { d: barPath(x, barW, barH), class: `chart-bar band-${bandIndexOf(h.product)}` })
+      const bar = svgEl('path', {
+        d: barPath(x, barW, barH),
+        class: 'chart-bar',
+        style: `fill: ${scoreColor(h.product)}`,
+      })
       svg.append(bar)
       return bar
     })
@@ -270,7 +273,7 @@ function bandKey(): HTMLElement {
   })
   const note = document.createElement('span')
   note.className = 'band-key-note'
-  note.textContent = 'score 0–100 · shaded columns are night'
+  note.textContent = 'score 0–100 · gold columns are daytime'
   key.append(note)
   return key
 }

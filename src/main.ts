@@ -5,7 +5,7 @@ import { ZipNotFoundError, zipToLatLon } from './api/geocode'
 import { mergeSeries, sliceNext72h } from './core/merge'
 import { scoreHour } from './core/scoring'
 import { locationNowIso } from './core/time'
-import { bestWindows } from './core/windows'
+import { walkWindows } from './core/windows'
 import type { GeoResult, ScoredHour, WalkWindow } from './types'
 import { renderChart } from './ui/chart'
 import { renderHero } from './ui/hero'
@@ -122,7 +122,7 @@ async function run(zip: string): Promise<void> {
     render({
       geo,
       hours,
-      windows: bestWindows(hours),
+      windows: walkWindows(hours),
       timezone: weather.timezone,
       aqiMissing: air === null,
       aqiPartial: air !== null && hours.some((h) => h.usAqi === null),

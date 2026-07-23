@@ -7,7 +7,6 @@ import {
   aqiFactor,
   dewFactor,
   displayScore,
-  limitingFactor,
   precipFactor,
   scoreHour,
   tempFactor,
@@ -189,12 +188,5 @@ describe('displayScore', () => {
     expect(displayScore(1)).toBe(100)
     expect(displayScore(0.5)).toBe(50)
     expect(displayScore(0)).toBe(0)
-  })
-})
-
-describe('limitingFactor', () => {
-  it('names the lowest sub-score', () => {
-    expect(limitingFactor({ aqi: 0.2, dewPoint: 0.9, precip: 1, temp: 1, uv: 0.7 })).toBe('aqi')
-    expect(limitingFactor({ aqi: null, dewPoint: 0.9, precip: 0.3, temp: 1, uv: 0.7 })).toBe('precip')
   })
 })

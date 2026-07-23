@@ -5,7 +5,7 @@ import { zipToLatLon } from '../src/api/geocode'
 import { mergeSeries, sliceNext72h } from '../src/core/merge'
 import { scoreHour } from '../src/core/scoring'
 import { locationNowIso } from '../src/core/time'
-import { bestWindows } from '../src/core/windows'
+import { WALK_THRESHOLD, walkWindows } from '../src/core/windows'
 
 /**
  * Hits the real Zippopotam and Open-Meteo APIs. Skipped unless LIVE_API=1
@@ -39,9 +39,16 @@ describe.runIf(process.env.LIVE_API === '1')('live API pipeline', () => {
     // AQI model horizon is ~4-5 days, so at least the first day must have it.
     expect(hours.slice(0, 24).every((h) => h.usAqi !== null)).toBe(true)
 
-    const windows = bestWindows(hours)
-    expect(windows.length).toBeGreaterThan(0)
-    expect(windows.length).toBeLessThanOrEqual(5)
+    // Real weather can legitimately produce zero windows, so assert structure
+    // rather than count: every hour clears the threshold, and windows are
+    // chronological and disjoint (local-ISO ts strings compare as strings).
+    const windows = walkWindows(hours)
+    for (const w of windows) {
+      for (const h of w.hours) expect(h.product).toBeGreaterThanOrEqual(WALK_THRESHOLD)
+    }
+    for (let i = 1; i < windows.length; i++) {
+      expect(windows[i].hours[0].ts > windows[i - 1].hours.at(-1)!.ts).toBe(true)
+    }
   }, 30_000)
 
   it('keeps Hawaii in the location clock, not the viewer clock', async () => {
