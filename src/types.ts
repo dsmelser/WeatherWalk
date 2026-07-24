@@ -17,6 +17,16 @@ export interface GeoResult {
 }
 
 /**
+ * One entry in the recent-searches strip: the ZIP the user searched plus the
+ * display name it resolved to (shown on the chip). Persisted as a JSON array
+ * in localStorage under ww:recents — list rules live in src/core/recents.ts.
+ */
+export interface RecentLocation {
+  zip: string
+  place: string
+}
+
+/**
  * Hourly arrays from the Open-Meteo forecast API, plus timezone info.
  *
  * The API's format is "parallel arrays": one `time` array and one same-length

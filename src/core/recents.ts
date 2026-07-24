@@ -1,0 +1,64 @@
+import type { RecentLocation } from '../types'
+
+/**
+ * List rules for the recent-searches strip. Pure functions only — this
+ * module never touches localStorage (main.ts owns the actual load/save),
+ * which keeps core/ free of browser APIs and these rules unit-testable.
+ *
+ * Invariants: most recent first, at most one entry per ZIP, never longer
+ * than MAX_RECENTS. addRecent/removeRecent return new arrays and leave
+ * their input untouched (render = rebuild from the returned value).
+ */
+
+/** Strip capacity — the oldest entry falls off once the list is full. */
+export const MAX_RECENTS = 8
+
+/**
+ * Put an entry at the front. Re-searching a ZIP moves it to the front
+ * (and refreshes its place name) rather than duplicating it.
+ */
+export function addRecent(list: RecentLocation[], entry: RecentLocation): RecentLocation[] {
+  return [entry, ...list.filter((r) => r.zip !== entry.zip)].slice(0, MAX_RECENTS)
+}
+
+/** Drop the entry for a ZIP; a ZIP that isn't in the list is a no-op. */
+export function removeRecent(list: RecentLocation[], zip: string): RecentLocation[] {
+  return list.filter((r) => r.zip !== zip)
+}
+
+/**
+ * Turn the persisted JSON back into a safe list. Anything wrong with the
+ * stored value — missing, corrupt JSON, not an array, junk entries — must
+ * never break startup, so bad input degrades to [] (or to whichever
+ * entries are valid). Same philosophy as readCache in src/api/geocode.ts.
+ */
+export function parseRecents(raw: string | null): RecentLocation[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    // The `e is RecentLocation` return type makes this filter a type
+    // predicate: TypeScript narrows the array's element type for us — see
+    // docs/MODERN-JS-PRIMER.md. The zip check applies the same 5-digit rule
+    // every other stored-ZIP read-back does (main.ts's auto-run), since a
+    // chip click feeds this string straight into a fetch URL.
+    const seen = new Set<string>()
+    return parsed
+      .filter(
+        (e): e is RecentLocation =>
+          typeof (e as RecentLocation)?.zip === 'string' &&
+          /^\d{5}$/.test((e as RecentLocation).zip) &&
+          typeof (e as RecentLocation)?.place === 'string',
+      )
+      // Re-impose the one-entry-per-ZIP invariant on read-back too (a
+      // hand-edited store could hold duplicates); first = most recent wins.
+      .filter((e) => {
+        if (seen.has(e.zip)) return false
+        seen.add(e.zip)
+        return true
+      })
+      .slice(0, MAX_RECENTS)
+  } catch {
+    return []
+  }
+}

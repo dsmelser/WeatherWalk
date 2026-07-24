@@ -50,8 +50,10 @@ Everything the app does is one straight line, orchestrated by `run()` in
   └─ renderWindows()   src/ui/windowsList.ts  the walk windows, in time order
 ```
 
-After a successful render, the ZIP is saved to `localStorage` and auto-runs
-on the next visit.
+After a successful render, the ZIP is saved to `localStorage` (auto-run on
+the next visit) and the location joins the recent-searches strip under the
+form (`src/ui/recents.ts`, list rules in `src/core/recents.ts`) — chips that
+re-run a past search with one click.
 
 ## Folder roles
 
@@ -129,8 +131,9 @@ There is no virtual DOM and no state library. The model is:
   - *Transient UI state* in closures — e.g. the chart's focused-bar index and
     bar references live inside `renderChart`'s scope, shared by its event
     handlers.
-  - *Persistent state* in two localStorage keys: `ww:lastZip` (last
-    successful ZIP) and `ww:geo:<zip>` (geocoding cache entries).
+  - *Persistent state* in three localStorage keys: `ww:lastZip` (last
+    successful ZIP), `ww:geo:<zip>` (geocoding cache entries), and
+    `ww:recents` (the recent-searches strip, a JSON `RecentLocation[]`).
   - *Visibility state* as `hidden` attributes on the sections in
     `index.html`, toggled only by `main.ts`.
 - **The page is the component tree.** `index.html` ships empty labeled
@@ -164,6 +167,8 @@ break them.
 - `tests/merge.test.ts` — the timestamp join, null handling, 72h slicing,
   and the wall-clock formatting helpers.
 - `tests/windows.test.ts` — run detection: bounds, threshold edge, gaps.
+- `tests/recents.test.ts` — recent-searches list rules: ordering,
+  dedupe-by-ZIP, the cap, and safe parsing of stored JSON.
 - `tests/api.test.ts` — offline *request-contract* tests: stub `fetch`,
   assert the exact query parameters. Losing `temperature_unit=fahrenheit`
   or `timezone=auto` would silently mis-score every hour; these pin it.

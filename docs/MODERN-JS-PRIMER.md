@@ -133,6 +133,22 @@ own built-in tag-name→type table.
   literals*: a value of this type can only be one of those exact strings.
   2019 codebases used enums or plain strings and hoped.
 
+### TypeScript: type predicates (`arg is Type`)
+
+```ts
+parsed.filter(
+  (e): e is RecentLocation => typeof e?.zip === 'string' && ...
+)
+```
+
+A function whose return type is `arg is Type` is a *type predicate* (older
+than 2019, but easy to forget): when it returns `true`, TypeScript narrows
+the argument to that type at the call site. On a `filter` callback the
+narrowing applies to the whole result — `unknown[]` in,
+`RecentLocation[]` out — which is how `parseRecents`
+(`src/core/recents.ts`) turns untrusted stored JSON into a typed list
+without a cast.
+
 ### `void` before a promise call
 
 ```js
