@@ -123,6 +123,82 @@ describe('uvFactor (logistic drop-off)', () => {
   })
 })
 
+describe('curve shape families', () => {
+  it('every bell peaks at exactly 1 at the optimum', () => {
+    for (const fn of ['gauss', 'cauchy', 'tent'] as const) {
+      expect(tempFactor(TEMP_COMFORT.optimal, { ...TEMP_COMFORT, fn })).toBe(1)
+    }
+  })
+
+  it('bells differ one width out: gauss 0.61, cauchy 0.50, tent 0.50', () => {
+    const oneOut = TEMP_COMFORT.optimal + TEMP_COMFORT.hotSigma
+    expect(tempFactor(oneOut, { ...TEMP_COMFORT, fn: 'gauss' })).toBeCloseTo(Math.exp(-0.5), 5)
+    expect(tempFactor(oneOut, { ...TEMP_COMFORT, fn: 'cauchy' })).toBeCloseTo(0.5, 5)
+    expect(tempFactor(oneOut, { ...TEMP_COMFORT, fn: 'tent' })).toBeCloseTo(0.5, 5)
+  })
+
+  it('cauchy is the forgiving one far from the optimum', () => {
+    // Three widths out on the COLD side (the hot side at 3 widths is past
+    // the 105°F hazard cutoff, where every shape is 0).
+    const threeOut = TEMP_COMFORT.optimal - 3 * TEMP_COMFORT.coldSigma
+    const gauss = tempFactor(threeOut, { ...TEMP_COMFORT, fn: 'gauss' })
+    const cauchy = tempFactor(threeOut, { ...TEMP_COMFORT, fn: 'cauchy' })
+    expect(cauchy).toBeGreaterThan(gauss * 5)
+  })
+
+  it('tent reaches exactly zero at two widths and stays there', () => {
+    const tent = { ...TEMP_COMFORT, fn: 'tent' as const }
+    expect(tempFactor(TEMP_COMFORT.optimal + 2 * TEMP_COMFORT.hotSigma, tent)).toBe(0)
+    expect(tempFactor(TEMP_COMFORT.optimal + 2.5 * TEMP_COMFORT.hotSigma, tent)).toBe(0)
+  })
+
+  it('every bell stays asymmetric (cold side falls slower)', () => {
+    for (const fn of ['gauss', 'cauchy', 'tent'] as const) {
+      const b = { ...TEMP_COMFORT, fn }
+      const d = 12
+      expect(tempFactor(TEMP_COMFORT.optimal - d, b)).toBeGreaterThan(
+        tempFactor(TEMP_COMFORT.optimal + d, b),
+      )
+    }
+  })
+
+  it('ramp matches the logistic at the midpoint and hits its endpoints', () => {
+    const ramp = { ...DEW_COMFORT, fn: 'ramp' as const }
+    expect(dewFactor(DEW_COMFORT.midpoint, ramp)).toBeCloseTo(0.5, 5)
+    expect(dewFactor(DEW_COMFORT.midpoint - 2 * DEW_COMFORT.softness, ramp)).toBe(1)
+    expect(dewFactor(DEW_COMFORT.midpoint + 2 * DEW_COMFORT.softness, ramp)).toBe(0)
+  })
+
+  it('cliff is a binary veto at the midpoint', () => {
+    const cliff = { ...DEW_COMFORT, fn: 'cliff' as const }
+    expect(dewFactor(DEW_COMFORT.midpoint - 0.1, cliff)).toBe(1)
+    expect(dewFactor(DEW_COMFORT.midpoint, cliff)).toBe(0)
+  })
+
+  it('drop-off shapes keep comfort(0) === 1', () => {
+    for (const fn of ['logistic', 'ramp', 'cliff'] as const) {
+      expect(dewFactor(0, { ...DEW_COMFORT, fn })).toBe(1)
+    }
+  })
+
+  it('normalization keeps comfort(0) === 1 even for gentle-softness ramps', () => {
+    // The UV/AQI spec ranges allow softness > midpoint/2, where the raw
+    // ramp line is still below 1 at x = 0 (dew ranges can never get there,
+    // so testing dew alone would miss a regression here). Without the
+    // normalization these were 0.94, 0.58, and 0.63 — a tax on night hours
+    // and pristine air.
+    expect(uvFactor(0, { fn: 'ramp', midpoint: 7, softness: 4 })).toBe(1)
+    expect(uvFactor(0, { fn: 'ramp', midpoint: 2, softness: 6 })).toBe(1)
+    expect(aqiFactor(0, { fn: 'ramp', midpoint: 50, softness: 100 })).toBe(1)
+  })
+
+  it('hazard zeros apply no matter the shape', () => {
+    expect(tempFactor(110, { ...TEMP_COMFORT, fn: 'cauchy' })).toBe(0)
+    expect(tempFactor(-20, { ...TEMP_COMFORT, fn: 'tent' })).toBe(0)
+    expect(aqiFactor(350, { ...AQI_COMFORT, fn: 'cliff' })).toBe(0)
+  })
+})
+
 describe('precipFactor (the probability of staying dry)', () => {
   it('is exactly 1 - p/100', () => {
     for (const p of [0, 10, 25, 50, 75, 100]) {

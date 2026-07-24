@@ -733,6 +733,92 @@ body {
   color: var(--text-primary);
   cursor: pointer;
 }
+.settings-fn {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--baseline);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+.settings-blurb {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ---- curve previews (src/ui/curvePreview.ts) ---- */
+.curve-preview {
+  margin-top: 8px;
+}
+/* The SVG scales to the group column; all geometry lives in its viewBox. */
+.curve-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: manipulation;
+  /* No long-press text selection/callout on the tick labels (the probe is
+     the intended touch interaction). */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.curve-grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.curve-baseline {
+  stroke: var(--baseline);
+  stroke-width: 1;
+}
+/* Hazard ranges (always score 0): a wash + a crisp edge line at each
+   cutoff. --scale-0 (not --status-critical) because it has a dark-theme
+   value, so the treatment survives both themes; the edge line is what
+   makes the boundary legible even where the wash is faint. */
+.curve-hazard {
+  fill: var(--scale-0);
+  opacity: 0.14;
+}
+.curve-hazard-edge {
+  stroke: var(--scale-0);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+  opacity: 0.7;
+}
+.curve-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.curve-area {
+  fill: var(--accent);
+  opacity: 0.1;
+}
+.curve-dot {
+  fill: var(--accent);
+}
+.curve-tick {
+  /* --text-secondary, not --muted (fails AA on the card surface — see the
+     .settings-note comment), and 11px to match .chart-tick: these render
+     smaller than authored once the viewBox scales down to the column. */
+  fill: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.curve-probe {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* The chart's text twin: multiplier at each labeled reference point. */
+.curve-readout {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---- footer ---- */
 .footer {
@@ -748,7 +834,7 @@ body {
 /* Shared keyboard-focus ring for everything except the chart holder (which
    has its own above). [modern] :is() groups selectors — this expands to
    four separate :focus-visible rules. docs/MODERN-JS-PRIMER.md. */
-:is(#zip-input, .status button, .banner button, .recent-chip button, .settings input, .settings button, summary):focus-visible {
+:is(#zip-input, .status button, .banner button, .recent-chip button, .settings input, .settings select, .settings button, summary):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -811,10 +897,17 @@ body {
   .settings-details summary {
     padding: 12px 0;
   }
-  /* Comfortable touch targets for the parameter inputs and reset button. */
+  /* Comfortable touch targets for the parameter inputs and reset button.
+     16px font is deliberate: iOS Safari auto-zooms the page when a form
+     control under 16px gains focus, and stays zoomed after. */
   .settings-row input {
     min-height: 40px;
     width: 5em;
+    font-size: 16px;
+  }
+  .settings-fn {
+    min-height: 40px;
+    font-size: 16px;
   }
   .settings-reset {
     min-height: 44px;

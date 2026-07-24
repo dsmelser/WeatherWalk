@@ -3,6 +3,7 @@ import { dayKey, formatDayLabel, formatTime, hourOf } from '../core/time'
 import type { ScoredHour } from '../types'
 import { renderTable } from './table'
 import { scoreColor } from './color'
+import { svgEl } from './svg'
 import { hideTooltip, placeTooltip, showTooltip } from './tooltip'
 
 /**
@@ -40,9 +41,6 @@ import { hideTooltip, placeTooltip, showTooltip } from './tooltip'
  * shared scope IS the chart's state management.
  */
 
-// SVG elements live in an XML namespace; createElement (HTML) can't make them.
-const SVG_NS = 'http://www.w3.org/2000/svg'
-
 const PAD_TOP = 12
 const PLOT_H = 190
 const AXIS_H = 44
@@ -52,21 +50,6 @@ const HEIGHT = PAD_TOP + PLOT_H + AXIS_H
 const BASELINE = PAD_TOP + PLOT_H
 const MAX_BAR_W = 24
 const BAR_GAP = 2
-
-/**
- * Typed SVG element factory. The generic `K extends keyof SVGElementTagNameMap`
- * keys into the DOM's built-in tag→type table, so svgEl('rect') returns an
- * SVGRectElement as far as TypeScript is concerned. All attrs are set via
- * setAttribute (SVG geometry is attributes, not CSS properties).
- */
-function svgEl<K extends keyof SVGElementTagNameMap>(
-  tag: K,
-  attrs: Record<string, string | number> = {},
-): SVGElementTagNameMap[K] {
-  const el = document.createElementNS(SVG_NS, tag)
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v))
-  return el
-}
 
 /**
  * Column with a 4px-rounded data end and a square baseline.

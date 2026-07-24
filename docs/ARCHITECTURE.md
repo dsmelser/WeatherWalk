@@ -151,11 +151,13 @@ native `<details>/<summary>`.
 
 ## Scoring model in one paragraph
 
-Each factor maps to a "percent comfort" in [0,1] through a smooth curve
-(`src/core/scoring.ts`): temperature through an asymmetric Gaussian bell
-(wider on the cold side — clothing fixes cold, nothing fixes heat), dew
-point / AQI / UV through normalized logistic drop-offs, and rain is simply
-the probability of staying dry (1 − p/100). The hour's score is the plain
+Each factor maps to a "percent comfort" in [0,1] through a selectable curve
+(`src/core/scoring.ts`): temperature through an asymmetric bell — Gaussian
+by default, with Cauchy (fat-tailed) and tent (linear) variants — wider on
+the cold side (clothing fixes cold, nothing fixes heat); dew point / AQI /
+UV through drop-offs — a normalized logistic by default, with ramp (linear)
+and cliff (binary cutoff) variants; and rain is simply the probability of
+staying dry (1 − p/100). The hour's score is the plain
 **product** of the factors, so one terrible factor vetoes the hour while
 several mild imperfections only dent it — and the ×multipliers shown in the
 tooltip literally multiply to the displayed score. Hazards (AQI ≥ 301,
@@ -164,10 +166,15 @@ parameters are named constants at the top of `scoring.ts`, tuned by hand;
 the tests derive their expectations from the constants so tuning doesn't
 break them. Users can override them too: the collapsed "Advanced settings"
 card (`src/ui/settings.ts`, model in `src/core/settings.ts`) edits a
-`ScoringParams` bag that `scoreHour` takes as an optional argument, applied
-live by re-scoring the last fetch (`repaintScores()` in `main.ts` — no
-refetch) and persisted at `ww:settings`. Rain and the hazard cutoffs are
-deliberately not tunable.
+`ScoringParams` bag — a curve *shape* per factor (bells: gauss / cauchy /
+tent; drop-offs: logistic / ramp / cliff) plus its numbers — that
+`scoreHour` takes as an optional argument, applied live by re-scoring the
+last fetch (`repaintScores()` in `main.ts` — no refetch) and persisted at
+`ww:settings`. Each factor's panel draws a live preview of the multiplier
+over that metric's earthly range with reference points at recognized
+thresholds (`src/ui/curvePreview.ts`). Rain and the hazard cutoffs are
+deliberately not tunable, and hazards zero the factor no matter which
+shape is selected.
 
 ## Testing strategy
 
