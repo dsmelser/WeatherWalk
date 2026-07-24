@@ -164,10 +164,15 @@ parameters are named constants at the top of `scoring.ts`, tuned by hand;
 the tests derive their expectations from the constants so tuning doesn't
 break them. Users can override them too: the collapsed "Advanced settings"
 card (`src/ui/settings.ts`, model in `src/core/settings.ts`) edits a
-`ScoringParams` bag that `scoreHour` takes as an optional argument, applied
-live by re-scoring the last fetch (`repaintScores()` in `main.ts` — no
-refetch) and persisted at `ww:settings`. Rain and the hazard cutoffs are
-deliberately not tunable.
+`ScoringParams` bag — a curve *shape* per factor (bells: gauss / cauchy /
+tent; drop-offs: logistic / ramp / cliff) plus its numbers — that
+`scoreHour` takes as an optional argument, applied live by re-scoring the
+last fetch (`repaintScores()` in `main.ts` — no refetch) and persisted at
+`ww:settings`. Each factor's panel draws a live preview of the multiplier
+over that metric's earthly range with reference points at recognized
+thresholds (`src/ui/curvePreview.ts`). Rain and the hazard cutoffs are
+deliberately not tunable, and hazards zero the factor no matter which
+shape is selected.
 
 ## Testing strategy
 

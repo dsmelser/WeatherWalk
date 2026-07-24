@@ -12,6 +12,7 @@ import {
   getParam,
   isDefaultParams,
   parseSettings,
+  setFn,
   setParam,
 } from '../src/core/settings'
 import type { HourData } from '../src/types'
@@ -134,7 +135,10 @@ describe('scoring with custom params', () => {
   it('scoreHour reflects the parameter set it is given', () => {
     // Under defaults this hour sits at the temperature optimum (factor 1);
     // shift the optimum far away and the same hour must score worse.
-    const shifted: ScoringParams = { ...defaultParams(), temp: { optimal: 45, coldSigma: 10, hotSigma: 10 } }
+    const shifted: ScoringParams = {
+      ...defaultParams(),
+      temp: { fn: 'gauss', optimal: 45, coldSigma: 10, hotSigma: 10 },
+    }
     const base = scoreHour(hour)
     const cold = scoreHour(hour, shifted)
     expect(cold.factors.temp).toBeLessThan(base.factors.temp)
@@ -147,11 +151,62 @@ describe('scoring with custom params', () => {
     // defaults (dropping p.dew etc. compiles fine and passes calibration
     // tests, which all run on defaults).
     const base = scoreHour(hour)
-    const dewShift = { ...defaultParams(), dew: { midpoint: 45, softness: 4.5 } }
+    const dewShift = { ...defaultParams(), dew: { ...DEFAULT_PARAMS.dew, midpoint: 45 } }
     expect(scoreHour(hour, dewShift).factors.dewPoint).toBeLessThan(base.factors.dewPoint)
-    const aqiShift = { ...defaultParams(), aqi: { midpoint: 55, softness: 30 } }
+    const aqiShift = { ...defaultParams(), aqi: { ...DEFAULT_PARAMS.aqi, midpoint: 55 } }
     expect(scoreHour(hour, aqiShift).factors.aqi!).toBeLessThan(base.factors.aqi!)
-    const uvShift = { ...defaultParams(), uv: { midpoint: 2, softness: 2.5 } }
+    const uvShift = { ...defaultParams(), uv: { ...DEFAULT_PARAMS.uv, midpoint: 2 } }
     expect(scoreHour(hour, uvShift).factors.uv).toBeLessThan(base.factors.uv)
+  })
+
+  it('threads the curve SHAPE through scoreHour too', () => {
+    // Same numbers, different shape, different score: an hour one tolerance
+    // above the optimum is 0.61 on the Gaussian but 0.5 on the tent.
+    const tentHour = { ...hour, tempF: DEFAULT_PARAMS.temp.optimal + DEFAULT_PARAMS.temp.hotSigma }
+    const tent = { ...defaultParams(), temp: { ...DEFAULT_PARAMS.temp, fn: 'tent' as const } }
+    expect(scoreHour(tentHour, tent).factors.temp).toBeCloseTo(0.5, 5)
+    expect(scoreHour(tentHour).factors.temp).toBeCloseTo(Math.exp(-0.5), 5)
+  })
+})
+
+describe('setFn / parsing shapes', () => {
+  it('changes a shape immutably', () => {
+    const original = defaultParams()
+    const tent = setFn(original, 'temp', 'tent')
+    expect(tent.temp.fn).toBe('tent')
+    expect(original.temp.fn).toBe('gauss')
+  })
+
+  it('rejects unknown and wrong-family shape names', () => {
+    expect(setFn(defaultParams(), 'temp', 'zigzag').temp.fn).toBe('gauss')
+    // 'tent' is a bell shape — a drop-off group must ignore it.
+    expect(setFn(defaultParams(), 'dew', 'tent').dew.fn).toBe('logistic')
+    expect(setFn(defaultParams(), 'uv', 'cliff').uv.fn).toBe('cliff')
+  })
+
+  it('a shape change alone flips isDefaultParams', () => {
+    expect(isDefaultParams(setFn(defaultParams(), 'aqi', 'ramp'))).toBe(false)
+  })
+
+  it('parseSettings honors stored shapes and drops junk ones', () => {
+    const parsed = parseSettings(
+      JSON.stringify({ temp: { fn: 'cauchy' }, dew: { fn: 'nonsense' }, uv: { fn: 'cliff' } }),
+    )
+    expect(parsed.temp.fn).toBe('cauchy')
+    expect(parsed.dew.fn).toBe('logistic')
+    expect(parsed.uv.fn).toBe('cliff')
+  })
+
+  it('settings stored before shapes existed keep their numbers and get default shapes', () => {
+    // The exact JSON the previous release wrote: numbers only, no fn.
+    const old = JSON.stringify({ temp: { optimal: 65, coldSigma: 22, hotSigma: 13 } })
+    const parsed = parseSettings(old)
+    expect(parsed.temp.optimal).toBe(65)
+    expect(parsed.temp.fn).toBe('gauss')
+  })
+
+  it('round-trips a shape-and-number edit', () => {
+    const edited = setFn(setParam(defaultParams(), tempOptimal, 62), 'dew', 'ramp')
+    expect(parseSettings(JSON.stringify(edited))).toEqual(edited)
   })
 })
