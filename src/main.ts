@@ -112,11 +112,14 @@ function paintRecents(): void {
  * forget a removed location too (or the startup auto-run would re-add the
  * chip on the next visit, silently undoing the delete), and the rebuild
  * destroys the button the user just pressed, so focus is handed to the chip
- * now occupying that slot (keyboard users stay in the strip instead of
- * being dumped back to <body>).
+ * now occupying that slot — or, when the last chip is gone, back to the ZIP
+ * input for keyboard users (instead of being dumped to <body>).
  */
 function removeRecentChip(zip: string): void {
   const idx = recents.findIndex((r) => r.zip === zip)
+  // Keyboard or pointer? Must be read BEFORE the rebuild destroys the
+  // pressed button (same modality signal the chart's handlers use).
+  const viaKeyboard = document.activeElement?.matches(':focus-visible') ?? false
   updateRecents(removeRecent(recents, zip))
   try {
     if (localStorage.getItem(LAST_ZIP_KEY) === zip) localStorage.removeItem(LAST_ZIP_KEY)
@@ -124,7 +127,13 @@ function removeRecentChip(zip: string): void {
     // storage unavailable — nothing to forget
   }
   const removes = recentsEl.querySelectorAll<HTMLButtonElement>('.recent-remove')
-  removes[Math.min(idx, removes.length - 1)]?.focus()
+  const next = removes[Math.min(idx, removes.length - 1)]
+  if (next) next.focus()
+  // Last chip removed: keyboard users continue at the ZIP input (the
+  // natural next stop) instead of restarting from <body>. Pointer users
+  // are left alone — focusing the input from a tap would pop the phone
+  // keyboard.
+  else if (viaKeyboard) input.focus()
 }
 
 /** Progress line ("Looking up 21201…"). Announced politely via aria-live. */
