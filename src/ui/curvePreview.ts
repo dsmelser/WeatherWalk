@@ -154,15 +154,13 @@ export function renderCurvePreview(
     probe.textContent = ''
   }
 
-  // [modern] Pointer Events cover mouse, touch, and pen with one handler;
-  // e.pointerType tells them apart below.
-  svg.addEventListener('pointermove', (e) => {
+  const probeAt = (clientX: number) => {
     if (!evalNow) return
     const rect = svg.getBoundingClientRect()
     // Map pointer → viewBox → data x, clamped to the plot area. (Safe
     // because width: 100% + height: auto keeps the element at the viewBox's
     // own aspect ratio — no preserveAspectRatio letterboxing in play.)
-    const vx = ((e.clientX - rect.left) / rect.width) * W
+    const vx = ((clientX - rect.left) / rect.width) * W
     const frac = Math.min(1, Math.max(0, (vx - PAD_L) / (W - PAD_L - PAD_R)))
     const x = spec.min + frac * (spec.max - spec.min)
     const m = evalNow(x)
@@ -170,7 +168,13 @@ export function renderCurvePreview(
     dot.setAttribute('cy', String(yOf(m)))
     dot.setAttribute('visibility', 'visible')
     probe.textContent = `${Math.round(x)}${spec.unit} → ×${m.toFixed(2)}`
-  })
+  }
+
+  // [modern] Pointer Events cover mouse, touch, and pen with one handler;
+  // e.pointerType tells them apart below. pointerdown too, not just move —
+  // a clean tap never fires pointermove, and the tap IS the touch gesture.
+  svg.addEventListener('pointermove', (e) => probeAt(e.clientX))
+  svg.addEventListener('pointerdown', (e) => probeAt(e.clientX))
   // Mouse leaving really means "done looking". A touch lift fires
   // pointerleave too, but clearing there would make a tap's reading flash
   // and vanish — so touch (and pen) keep their last reading pinned until
