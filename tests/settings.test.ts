@@ -50,8 +50,12 @@ describe('setParam / getParam', () => {
 
   it('does not mutate the input params (or the shared defaults)', () => {
     const original = defaultParams()
+    // Snapshot the primitive BEFORE the call: comparing against
+    // DEFAULT_PARAMS.temp.optimal afterward would pass even if a shared-
+    // object bug corrupted both sides in tandem.
+    const before = original.temp.optimal
     setParam(original, tempOptimal, 60)
-    expect(original.temp.optimal).toBe(DEFAULT_PARAMS.temp.optimal)
+    expect(original.temp.optimal).toBe(before)
   })
 })
 
@@ -77,8 +81,10 @@ describe('parseSettings', () => {
     expect(parseSettings('{not json')).toEqual(DEFAULT_PARAMS)
   })
 
-  it('returns the defaults for JSON that is not an object', () => {
-    expect(parseSettings('[1,2,3]') === null).toBe(false)
+  it('returns the defaults for JSON that is not a params object', () => {
+    // An array passes the typeof === 'object' guard (unlike "hi"), so it
+    // exercises the per-spec loop finding nothing usable.
+    expect(parseSettings('[1,2,3]')).toEqual(DEFAULT_PARAMS)
     expect(parseSettings('"hi"')).toEqual(DEFAULT_PARAMS)
   })
 
@@ -133,5 +139,19 @@ describe('scoring with custom params', () => {
     const cold = scoreHour(hour, shifted)
     expect(cold.factors.temp).toBeLessThan(base.factors.temp)
     expect(cold.product).toBeLessThan(base.product)
+  })
+
+  it('threads every curve through scoreHour, not just temperature', () => {
+    // Each curve gets its midpoint dragged below the hour's value, which
+    // must drag that factor down. Catches a factor silently scored on the
+    // defaults (dropping p.dew etc. compiles fine and passes calibration
+    // tests, which all run on defaults).
+    const base = scoreHour(hour)
+    const dewShift = { ...defaultParams(), dew: { midpoint: 45, softness: 4.5 } }
+    expect(scoreHour(hour, dewShift).factors.dewPoint).toBeLessThan(base.factors.dewPoint)
+    const aqiShift = { ...defaultParams(), aqi: { midpoint: 55, softness: 30 } }
+    expect(scoreHour(hour, aqiShift).factors.aqi!).toBeLessThan(base.factors.aqi!)
+    const uvShift = { ...defaultParams(), uv: { midpoint: 2, softness: 2.5 } }
+    expect(scoreHour(hour, uvShift).factors.uv).toBeLessThan(base.factors.uv)
   })
 })

@@ -1,5 +1,5 @@
 import { DEFAULT_PARAMS } from './scoring'
-import type { ScoringParams } from './scoring'
+import type { Bell, Logistic, ScoringParams } from './scoring'
 
 /**
  * The Advanced-settings model: which scoring parameters are user-tunable,
@@ -12,12 +12,13 @@ import type { ScoringParams } from './scoring'
  * parameter is one new entry here (plus its default in scoring.ts).
  */
 
-/** One tunable field: where it lives in ScoringParams plus its UI facts. */
-export interface SettingSpec {
-  /** The curve it belongs to. */
-  group: keyof ScoringParams
-  /** The field inside that curve's parameter object. */
-  key: 'optimal' | 'coldSigma' | 'hotSigma' | 'midpoint' | 'softness'
+/**
+ * One tunable field: where it lives in ScoringParams plus its UI facts.
+ * The group/key half is a discriminated union so an impossible spec (say
+ * `{ group: 'dew', key: 'coldSigma' }`) is a compile error, and
+ * getParam/setParam below narrow on `group` with no casts.
+ */
+export type SettingSpec = {
   /** Control label ("ideal temperature"). */
   label: string
   /** Unit shown after the input ("°F", "AQI", ""). */
@@ -25,7 +26,7 @@ export interface SettingSpec {
   min: number
   max: number
   step: number
-}
+} & ({ group: 'temp'; key: keyof Bell } | { group: 'dew' | 'aqi' | 'uv'; key: keyof Logistic })
 
 export const SETTING_SPECS: SettingSpec[] = [
   // Temperature bell: where comfort peaks, and how fast each side falls.
@@ -49,9 +50,9 @@ export const GROUP_LABELS: Record<keyof ScoringParams, string> = {
   uv: 'UV',
 }
 
-/** Read one spec'd value. The cast is safe: specs only name real fields. */
+/** Read one spec'd value (the union narrows `key` to the right curve). */
 export function getParam(params: ScoringParams, spec: SettingSpec): number {
-  return (params[spec.group] as unknown as Record<string, number>)[spec.key]
+  return spec.group === 'temp' ? params.temp[spec.key] : params[spec.group][spec.key]
 }
 
 /** A deep copy — parameter objects are never shared or mutated in place. */
@@ -67,7 +68,9 @@ function clone(params: ScoringParams): ScoringParams {
 /** Return new params with one spec'd value replaced (clamped to its range). */
 export function setParam(params: ScoringParams, spec: SettingSpec, value: number): ScoringParams {
   const next = clone(params)
-  ;(next[spec.group] as unknown as Record<string, number>)[spec.key] = clampToSpec(spec, value)
+  const v = clampToSpec(spec, value)
+  if (spec.group === 'temp') next.temp[spec.key] = v
+  else next[spec.group][spec.key] = v
   return next
 }
 
@@ -91,12 +94,13 @@ export function defaultParams(): ScoringParams {
 
 /**
  * Turn the persisted JSON back into full, in-range ScoringParams. Field by
- * field: a stored number is clamped to its spec's range, anything missing
- * or junk falls back to the default — so a corrupt value can never break
- * scoring, and old stored settings survive new fields being added later.
+ * field: a stored number is clamped to its spec's range (via setParam),
+ * anything missing or junk falls back to the default — so a corrupt value
+ * can never break scoring, and old stored settings survive new fields
+ * being added later.
  */
 export function parseSettings(raw: string | null): ScoringParams {
-  const params = clone(DEFAULT_PARAMS)
+  let params = clone(DEFAULT_PARAMS)
   if (!raw) return params
   let stored: unknown
   try {
@@ -109,9 +113,7 @@ export function parseSettings(raw: string | null): ScoringParams {
     const group = (stored as Record<string, unknown>)[spec.group]
     if (typeof group !== 'object' || group === null) continue
     const value = (group as Record<string, unknown>)[spec.key]
-    if (typeof value === 'number') {
-      ;(params[spec.group] as unknown as Record<string, number>)[spec.key] = clampToSpec(spec, value)
-    }
+    if (typeof value === 'number') params = setParam(params, spec, value)
   }
   return params
 }

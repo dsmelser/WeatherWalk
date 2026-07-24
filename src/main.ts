@@ -77,16 +77,11 @@ function setBusy(busy: boolean): void {
 }
 
 /**
- * The in-memory recent-searches list. Persisted at RECENTS_KEY; a missing or
- * corrupt stored value just means starting empty (parseRecents never throws,
- * but localStorage.getItem itself can in private browsing).
+ * The in-memory recent-searches list. Persisted at RECENTS_KEY; a missing,
+ * corrupt, or unavailable stored value just means starting empty
+ * (parseRecents maps null to [], safeGetItem maps a throwing storage to null).
  */
-let recents: RecentLocation[] = []
-try {
-  recents = parseRecents(localStorage.getItem(RECENTS_KEY))
-} catch {
-  // storage unavailable — the strip starts empty and won't persist
-}
+let recents: RecentLocation[] = parseRecents(safeGetItem(RECENTS_KEY))
 
 /** Replace the list, persist it, and repaint the strip (render = rebuild). */
 function updateRecents(next: RecentLocation[]): void {
@@ -193,17 +188,11 @@ function showBanner(message: string): void {
 let params: ScoringParams = parseSettings(safeGetItem(SETTINGS_KEY))
 
 /**
- * The last successful fetch, kept UNSCORED so a settings change can re-score
- * and repaint without hitting the network again. null until the first
- * successful run.
+ * The last successful fetch's merged, 72h-sliced hours, kept UNSCORED so a
+ * settings change can re-score and repaint without hitting the network
+ * again. null until the first successful run.
  */
-let lastData: {
-  geo: GeoResult
-  /** The merged, 72h-sliced hours — everything scoring needs. */
-  sliced: HourData[]
-  timezone: string
-  aqiMissing: boolean
-} | null = null
+let lastSliced: HourData[] | null = null
 
 /** localStorage.getItem that treats an unavailable storage as "nothing". */
 function safeGetItem(key: string): string | null {
@@ -215,18 +204,42 @@ function safeGetItem(key: string): string | null {
 }
 
 /**
- * Scores lastData under the current params and repaints the three
+ * Scores lastSliced under the current params and repaints the three
  * score-driven sections. Visibility is untouched: as part of render() the
  * sections are about to be revealed; on a settings change they just repaint
  * in place (or invisibly, if an error state currently hides them).
  */
 function repaintScores(): void {
-  if (!lastData) return
-  const hours = lastData.sliced.map((h) => scoreHour(h, params))
+  if (!lastSliced) return
+  // The rebuild would silently collapse any <details> the user opened to
+  // watch the numbers respond to tuning (and reset the table's scroll) —
+  // remember their state and put it back afterward. Restoring across a
+  // re-search too is deliberate: your table stays open when you re-run.
+  const tableOpen = chartEl.querySelector<HTMLDetailsElement>('.table-view')?.open ?? false
+  const tableScroll = chartEl.querySelector('.table-scroll')?.scrollTop ?? 0
+  const openWindows = [...windowsEl.querySelectorAll<HTMLDetailsElement>('.window-details')].map(
+    (d) => d.open,
+  )
+  // A hover tooltip would otherwise survive the rebuild frozen on the OLD
+  // scores (no pointer movement happens, so nothing else dismisses it).
+  tooltipEl.hidden = true
+
+  const hours = lastSliced.map((h) => scoreHour(h, params))
   const windows = walkWindows(hours)
   renderHero(heroEl, windows)
   renderChart(chartEl, hours, tooltipEl)
   renderWindows(windowsEl, windows)
+
+  const table = chartEl.querySelector<HTMLDetailsElement>('.table-view')
+  if (table && tableOpen) {
+    table.open = true
+    const scroll = chartEl.querySelector('.table-scroll')
+    if (scroll) scroll.scrollTop = tableScroll
+  }
+  // Windows are matched by position — best effort when the count changed.
+  windowsEl.querySelectorAll<HTMLDetailsElement>('.window-details').forEach((d, i) => {
+    if (openWindows[i]) d.open = true
+  })
 }
 
 /** A settings edit: remember it, then re-score whatever is on screen. */
@@ -290,7 +303,7 @@ async function run(zip: string): Promise<void> {
     if (sliced.length === 0) throw new Error('No forecast hours were returned — please retry.')
     // Keep the unscored hours so settings changes can re-score them later;
     // render() → repaintScores() does the actual scoring.
-    lastData = { geo, sliced, timezone: weather.timezone, aqiMissing: air === null }
+    lastSliced = sliced
     render({
       geo,
       timezone: weather.timezone,
@@ -339,12 +352,8 @@ renderSettings(settingsEl, params, { onChange: applySettings })
 
 // Startup: if a ZIP was saved from a previous visit, re-run it immediately —
 // returning users land on their forecast, not an empty form.
-try {
-  const last = localStorage.getItem(LAST_ZIP_KEY)
-  if (last && /^\d{5}$/.test(last)) {
-    input.value = last
-    void run(last)
-  }
-} catch {
-  // storage unavailable — start fresh
+const last = safeGetItem(LAST_ZIP_KEY)
+if (last && /^\d{5}$/.test(last)) {
+  input.value = last
+  void run(last)
 }

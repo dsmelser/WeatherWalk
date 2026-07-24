@@ -34,20 +34,20 @@ Everything the app does is one straight line, orchestrated by `run()` in
         ▼
   sliceNext72h()                       src/core/merge.ts
   keep hours in [now, now+72h), by wall-clock string comparison
-        │
-        ▼
-  scoreHour() per hour                 src/core/scoring.ts
-  five comfort factors in [0,1], multiplied → product, ×100 → display
-        │  ScoredHour[]
-        ▼
-  walkWindows()                        src/core/windows.ts
-  chronological maximal runs of hours with product ≥ 0.5
-        │  WalkWindow[]
+        │  HourData[] — kept unscored as `lastSliced` in main.ts
         ▼
   render()                             src/main.ts
+  place label + AQI banners, then repaintScores():
+  ├─ scoreHour() per hour             src/core/scoring.ts
+  │    five comfort factors in [0,1], multiplied → product, ×100 → display
+  ├─ walkWindows()                    src/core/windows.ts
+  │    chronological maximal runs of hours with product ≥ 0.5
   ├─ renderHero()      src/ui/hero.ts         "Next good time to walk"
   ├─ renderChart()     src/ui/chart.ts        72 SVG bars + tooltip + table twin
   └─ renderWindows()   src/ui/windowsList.ts  the walk windows, in time order
+
+  (repaintScores() also re-runs by itself, on the cached `lastSliced`,
+  every time an Advanced-settings parameter changes — no refetch.)
 ```
 
 After a successful render, the ZIP is saved to `localStorage` (auto-run on
@@ -127,7 +127,7 @@ There is no virtual DOM and no state library. The model is:
   `container.replaceChildren()` and reconstructs its section from data.
   With ≤72 hours of data this takes single-digit milliseconds; diffing would
   be complexity with no payoff.
-- **State lives in three places** and nowhere else:
+- **State lives in four places** and nowhere else:
   - *Transient UI state* in closures — e.g. the chart's focused-bar index and
     bar references live inside `renderChart`'s scope, shared by its event
     handlers.
@@ -135,6 +135,9 @@ There is no virtual DOM and no state library. The model is:
     successful ZIP), `ww:geo:<zip>` (geocoding cache entries), `ww:recents`
     (the recent-searches strip, a JSON `RecentLocation[]`), and
     `ww:settings` (tuned scoring parameters, a JSON `ScoringParams`).
+  - *The last-fetch cache* — `lastSliced` in `main.ts`, the unscored
+    72h-sliced hours of the last successful fetch, held in memory only so a
+    settings change can re-score and repaint without refetching.
   - *Visibility state* as `hidden` attributes on the sections in
     `index.html`, toggled only by `main.ts`.
 - **The page is the component tree.** `index.html` ships empty labeled

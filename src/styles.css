@@ -666,7 +666,9 @@ body {
 .settings-note {
   margin: 10px 0 4px;
   font-size: 13px;
-  color: var(--muted);
+  /* --text-secondary, not --muted: --muted on the card surface is 3.5:1 in
+     light mode — under the 4.5:1 AA floor for text this small. */
+  color: var(--text-secondary);
 }
 .settings-grid {
   display: grid;
@@ -711,7 +713,9 @@ body {
 }
 .settings-unit {
   min-width: 6.5em;
-  color: var(--muted);
+  /* Same AA-contrast reasoning as .settings-note — the unit is the only
+     thing distinguishing the three identical "50% comfort at" labels. */
+  color: var(--text-secondary);
   font-size: 12px;
 }
 .settings-reset {

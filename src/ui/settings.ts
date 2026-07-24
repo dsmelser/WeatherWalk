@@ -75,20 +75,29 @@ export function renderSettings(
       input.min = String(spec.min)
       input.max = String(spec.max)
       input.step = String(spec.step)
+      // The allowed range, one hover/long-press away (the only in-UI hint
+      // of why an out-of-range entry snaps back on blur).
+      input.title = `${spec.min}–${spec.max}`
       input.value = String(getParam(params, spec))
       inputs.set(spec.group + '.' + spec.key, input)
 
-      // 'input' fires per keystroke/arrow-step: apply valid values live but
-      // never rewrite the field mid-typing (clamping "7" while aiming for
-      // "75" would fight the user). setParam clamps the MODEL; the field
-      // itself is only snapped to the clamped value on 'change' (blur/Enter).
-      input.addEventListener('input', () => {
-        if (!Number.isFinite(input.valueAsNumber)) return
-        params = setParam(params, spec, input.valueAsNumber)
+      const apply = (value: number) => {
+        params = setParam(params, spec, value)
         modified.hidden = isDefaultParams(params)
         handlers.onChange(params)
+      }
+      // 'input' fires per keystroke/arrow-step: apply live, but ONLY values
+      // already inside the range — clamping a half-typed "7" (heading for
+      // "75") to the minimum would flash wildly wrong scores mid-word.
+      input.addEventListener('input', () => {
+        const v = input.valueAsNumber
+        if (!Number.isFinite(v) || v < spec.min || v > spec.max) return
+        apply(v)
       })
+      // 'change' (blur/Enter) settles whatever is in the field: clamp it
+      // into range, apply, and snap the field to the value that stuck.
       input.addEventListener('change', () => {
+        if (Number.isFinite(input.valueAsNumber)) apply(input.valueAsNumber)
         input.value = String(getParam(params, spec))
       })
 
