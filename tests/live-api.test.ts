@@ -30,7 +30,9 @@ describe.runIf(process.env.LIVE_API === '1')('live API pipeline', () => {
     expect(air.time.length).toBeGreaterThanOrEqual(96)
 
     const nowIso = locationNowIso(weather.utcOffsetSeconds, Date.now())
-    const hours = sliceNext72h(mergeSeries(weather, air), nowIso).map(scoreHour)
+    // Arrow form, not .map(scoreHour) — the map index would land in the
+    // optional params slot.
+    const hours = sliceNext72h(mergeSeries(weather, air), nowIso).map((h) => scoreHour(h))
     expect(hours).toHaveLength(72)
     expect(hours[0].ts).toBe(nowIso)
     for (const h of hours) {

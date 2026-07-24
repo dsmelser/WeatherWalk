@@ -13,18 +13,23 @@ import { ZipNotFoundError, zipToLatLon } from './api/geocode'
 import { mergeSeries, sliceNext72h } from './core/merge'
 import { addRecent, parseRecents, removeRecent } from './core/recents'
 import { scoreHour } from './core/scoring'
+import type { ScoringParams } from './core/scoring'
+import { parseSettings } from './core/settings'
 import { locationNowIso } from './core/time'
 import { walkWindows } from './core/windows'
-import type { GeoResult, RecentLocation, ScoredHour, WalkWindow } from './types'
+import type { GeoResult, HourData, RecentLocation } from './types'
 import { renderChart } from './ui/chart'
 import { renderHero } from './ui/hero'
 import { renderRecents } from './ui/recents'
+import { renderSettings } from './ui/settings'
 import { renderWindows } from './ui/windowsList'
 
 /** localStorage key remembering the last successful ZIP (auto-run on load). */
 const LAST_ZIP_KEY = 'ww:lastZip'
 /** localStorage key holding the recent-searches list (JSON RecentLocation[]). */
 const RECENTS_KEY = 'ww:recents'
+/** localStorage key holding the tuned scoring parameters (JSON ScoringParams). */
+const SETTINGS_KEY = 'ww:settings'
 
 /**
  * getElementById with teeth: throws if the id is missing (a typo here should
@@ -50,13 +55,12 @@ const placeEl = el('place-label')
 const heroEl = el('hero')
 const chartEl = el('chart')
 const windowsEl = el('windows')
+const settingsEl = el('settings')
 const tooltipEl = el('tooltip')
 
 /** Everything render() needs, assembled by run(). */
 interface ViewData {
   geo: GeoResult
-  hours: ScoredHour[]
-  windows: WalkWindow[]
   timezone: string
   /** The whole AQI fetch failed — scores use four factors everywhere. */
   aqiMissing: boolean
@@ -182,6 +186,60 @@ function showBanner(message: string): void {
   bannerEl.hidden = false
 }
 
+/**
+ * The tuned scoring parameters, loaded once at startup. Persisted at
+ * SETTINGS_KEY; parseSettings maps a missing/corrupt value to the defaults.
+ */
+let params: ScoringParams = parseSettings(safeGetItem(SETTINGS_KEY))
+
+/**
+ * The last successful fetch, kept UNSCORED so a settings change can re-score
+ * and repaint without hitting the network again. null until the first
+ * successful run.
+ */
+let lastData: {
+  geo: GeoResult
+  /** The merged, 72h-sliced hours — everything scoring needs. */
+  sliced: HourData[]
+  timezone: string
+  aqiMissing: boolean
+} | null = null
+
+/** localStorage.getItem that treats an unavailable storage as "nothing". */
+function safeGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Scores lastData under the current params and repaints the three
+ * score-driven sections. Visibility is untouched: as part of render() the
+ * sections are about to be revealed; on a settings change they just repaint
+ * in place (or invisibly, if an error state currently hides them).
+ */
+function repaintScores(): void {
+  if (!lastData) return
+  const hours = lastData.sliced.map((h) => scoreHour(h, params))
+  const windows = walkWindows(hours)
+  renderHero(heroEl, windows)
+  renderChart(chartEl, hours, tooltipEl)
+  renderWindows(windowsEl, windows)
+}
+
+/** A settings edit: remember it, then re-score whatever is on screen. */
+function applySettings(next: ScoringParams): void {
+  params = next
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(params))
+  } catch {
+    // storage unavailable — the tuning still applies for this visit
+  }
+  repaintScores()
+}
+
 /** Paints a successful forecast: place label, hero, chart, windows. */
 function render(view: ViewData): void {
   statusEl.hidden = true
@@ -193,9 +251,7 @@ function render(view: ViewData): void {
   } else if (view.aqiPartial) {
     showBanner('The air quality forecast ends early — the last hours are scored without AQI.')
   }
-  renderHero(heroEl, view.windows)
-  renderChart(chartEl, view.hours, tooltipEl)
-  renderWindows(windowsEl, view.windows)
+  repaintScores()
   heroEl.hidden = chartEl.hidden = windowsEl.hidden = false
 }
 
@@ -230,16 +286,17 @@ async function run(zip: string): Promise<void> {
     const merged = mergeSeries(weather, air)
     // "Now" in the ZIP's own clock — see src/core/time.ts for why.
     const nowIso = locationNowIso(weather.utcOffsetSeconds, Date.now())
-    const hours = sliceNext72h(merged, nowIso).map(scoreHour)
-    if (hours.length === 0) throw new Error('No forecast hours were returned — please retry.')
+    const sliced = sliceNext72h(merged, nowIso)
+    if (sliced.length === 0) throw new Error('No forecast hours were returned — please retry.')
+    // Keep the unscored hours so settings changes can re-score them later;
+    // render() → repaintScores() does the actual scoring.
+    lastData = { geo, sliced, timezone: weather.timezone, aqiMissing: air === null }
     render({
       geo,
-      hours,
-      windows: walkWindows(hours),
       timezone: weather.timezone,
       aqiMissing: air === null,
       // AQI fetch worked but some sliced hours lack a value (model horizon).
-      aqiPartial: air !== null && hours.some((h) => h.usAqi === null),
+      aqiPartial: air !== null && sliced.some((h) => h.usAqi === null),
     })
     // Only remember the ZIP after a fully successful render.
     try {
@@ -275,9 +332,10 @@ form.addEventListener('submit', (e) => {
   void run(zip)
 })
 
-// Startup: show the recent-searches strip right away (it renders from
-// localStorage alone — no network needed).
+// Startup: show the recent-searches strip and the Advanced-settings panel
+// right away (both render from localStorage alone — no network needed).
 paintRecents()
+renderSettings(settingsEl, params, { onChange: applySettings })
 
 // Startup: if a ZIP was saved from a previous visit, re-run it immediately —
 // returning users land on their forecast, not an empty form.

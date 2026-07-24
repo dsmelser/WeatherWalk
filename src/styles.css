@@ -319,10 +319,11 @@ body {
 }
 
 /* ---- cards ---- */
-/* The three result sections share one card look. */
+/* The three result sections and the settings panel share one card look. */
 .hero,
 .chart,
-.windows {
+.windows,
+.settings {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -650,6 +651,82 @@ body {
   color: var(--text-secondary);
 }
 
+/* ---- advanced settings ---- */
+.settings-details summary {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.settings-modified {
+  margin-left: 4px;
+  font-weight: 400;
+  color: var(--accent);
+}
+.settings-note {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.settings-grid {
+  display: grid;
+  /* As many ~230px columns as fit — four groups side by side on desktop,
+     stacking toward one column as the viewport narrows. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px 18px;
+  margin-top: 8px;
+}
+.settings-group {
+  margin: 0;
+  padding: 10px 0 4px;
+  border: none;
+  border-top: 1px solid var(--grid);
+}
+.settings-group legend {
+  padding: 0 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.settings-label {
+  flex: 1;
+  color: var(--text-secondary);
+}
+.settings-row input {
+  font: inherit;
+  width: 4.5em;
+  padding: 4px 6px;
+  border: 1px solid var(--baseline);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.settings-unit {
+  min-width: 6.5em;
+  color: var(--muted);
+  font-size: 12px;
+}
+.settings-reset {
+  margin-top: 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border: 1px solid var(--baseline);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
 /* ---- footer ---- */
 .footer {
   text-align: center;
@@ -664,7 +741,7 @@ body {
 /* Shared keyboard-focus ring for everything except the chart holder (which
    has its own above). [post-2019] :is() groups selectors — this expands to
    four separate :focus-visible rules. docs/MODERN-JS-PRIMER.md. */
-:is(#zip-input, .status button, .banner button, .recent-chip button, summary):focus-visible {
+:is(#zip-input, .status button, .banner button, .recent-chip button, .settings input, .settings button, summary):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -683,7 +760,8 @@ body {
   }
   .hero,
   .chart,
-  .windows {
+  .windows,
+  .settings {
     padding: 14px 12px;
     border-radius: 12px;
   }
@@ -722,8 +800,18 @@ body {
   }
   /* ~44px-tall toggle rows. */
   .table-view summary,
-  .window-details summary {
+  .window-details summary,
+  .settings-details summary {
     padding: 12px 0;
+  }
+  /* Comfortable touch targets for the parameter inputs and reset button. */
+  .settings-row input {
+    min-height: 40px;
+    width: 5em;
+  }
+  .settings-reset {
+    min-height: 44px;
+    padding: 9px 18px;
   }
   .band-key {
     gap: 8px 12px;
