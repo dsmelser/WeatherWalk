@@ -11,16 +11,20 @@ import { fetchAirQuality } from './api/airQuality'
 import { fetchForecast } from './api/forecast'
 import { ZipNotFoundError, zipToLatLon } from './api/geocode'
 import { mergeSeries, sliceNext72h } from './core/merge'
+import { addRecent, parseRecents, removeRecent } from './core/recents'
 import { scoreHour } from './core/scoring'
 import { locationNowIso } from './core/time'
 import { walkWindows } from './core/windows'
-import type { GeoResult, ScoredHour, WalkWindow } from './types'
+import type { GeoResult, RecentLocation, ScoredHour, WalkWindow } from './types'
 import { renderChart } from './ui/chart'
 import { renderHero } from './ui/hero'
+import { renderRecents } from './ui/recents'
 import { renderWindows } from './ui/windowsList'
 
 /** localStorage key remembering the last successful ZIP (auto-run on load). */
 const LAST_ZIP_KEY = 'ww:lastZip'
+/** localStorage key holding the recent-searches list (JSON RecentLocation[]). */
+const RECENTS_KEY = 'ww:recents'
 
 /**
  * getElementById with teeth: throws if the id is missing (a typo here should
@@ -41,6 +45,7 @@ const input = el<HTMLInputElement>('zip-input')
 const submit = el<HTMLButtonElement>('zip-submit')
 const statusEl = el('status')
 const bannerEl = el('banner')
+const recentsEl = el('recents')
 const placeEl = el('place-label')
 const heroEl = el('hero')
 const chartEl = el('chart')
@@ -63,6 +68,41 @@ interface ViewData {
 function setBusy(busy: boolean): void {
   submit.disabled = busy
   input.disabled = busy
+  // The recent-search chips can start a run too, so they pause with the form.
+  for (const b of recentsEl.querySelectorAll('button')) b.disabled = busy
+}
+
+/**
+ * The in-memory recent-searches list. Persisted at RECENTS_KEY; a missing or
+ * corrupt stored value just means starting empty (parseRecents never throws,
+ * but localStorage.getItem itself can in private browsing).
+ */
+let recents: RecentLocation[] = []
+try {
+  recents = parseRecents(localStorage.getItem(RECENTS_KEY))
+} catch {
+  // storage unavailable — the strip starts empty and won't persist
+}
+
+/** Replace the list, persist it, and repaint the strip (render = rebuild). */
+function updateRecents(next: RecentLocation[]): void {
+  recents = next
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(recents))
+  } catch {
+    // storage unavailable — the strip still works for this visit
+  }
+  paintRecents()
+}
+
+function paintRecents(): void {
+  renderRecents(recentsEl, recents, {
+    onSelect: (zip) => {
+      input.value = zip
+      void run(zip)
+    },
+    onRemove: (zip) => updateRecents(removeRecent(recents, zip)),
+  })
 }
 
 /** Progress line ("Looking up 21201…"). Announced politely via aria-live. */
@@ -176,6 +216,9 @@ async function run(zip: string): Promise<void> {
     } catch {
       // storage unavailable — just don't remember
     }
+    // Same rule for the recents strip — and by now geo.place is known, so
+    // the chip gets the friendly name, not the ZIP.
+    updateRecents(addRecent(recents, { zip, place: geo.place }))
   } catch (err) {
     // instanceof picks out the typed "no such ZIP" failure (not retryable);
     // everything else gets its message (or a fallback) plus a Retry button.
@@ -200,6 +243,10 @@ form.addEventListener('submit', (e) => {
   }
   void run(zip)
 })
+
+// Startup: show the recent-searches strip right away (it renders from
+// localStorage alone — no network needed).
+paintRecents()
 
 // Startup: if a ZIP was saved from a previous visit, re-run it immediately —
 // returning users land on their forecast, not an empty form.

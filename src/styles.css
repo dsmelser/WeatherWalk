@@ -182,6 +182,81 @@ body {
   font-size: 14px;
 }
 
+/* ---- recent searches ---- */
+/* The strip of previously searched locations under the ZIP form
+   (src/ui/recents.ts). Each chip is a pill holding TWO buttons side by
+   side: the place name (re-runs that search) and a × (removes it). */
+.recents {
+  margin-top: 10px;
+}
+.recents-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.recent-chip {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--surface-1);
+  border: 1px solid var(--baseline);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.recent-go {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 4px 2px 4px 12px;
+  cursor: pointer;
+}
+.recent-go:hover {
+  color: var(--text-primary);
+}
+.recent-remove {
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 9px 0 4px;
+  /* Hidden until the chip is hovered or a button in it has focus. Hiding
+     via opacity (not display) keeps the chip's width constant, so nothing
+     shifts on hover. */
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.recent-chip:hover .recent-remove,
+.recent-chip:focus-within .recent-remove {
+  opacity: 1;
+}
+.recent-remove:hover {
+  color: var(--status-critical);
+}
+/* Touch screens have no hover — the × is simply always visible there. */
+@media (hover: none) {
+  .recent-remove {
+    opacity: 1;
+  }
+}
+/* setBusy() in main.ts pauses the chips while a lookup is in flight. The ×
+   gets no opacity here — that would out-rank the hover-hidden opacity: 0
+   above and flash every × visible during a lookup. */
+.recent-go:disabled {
+  opacity: 0.55;
+}
+.recent-go:disabled,
+.recent-remove:disabled {
+  cursor: default;
+}
+
 /* ---- status / banner ---- */
 .status {
   text-align: center;
@@ -584,7 +659,7 @@ body {
 /* Shared keyboard-focus ring for everything except the chart holder (which
    has its own above). [post-2019] :is() groups selectors — this expands to
    four separate :focus-visible rules. docs/MODERN-JS-PRIMER.md. */
-:is(#zip-input, .status button, .banner button, summary):focus-visible {
+:is(#zip-input, .status button, .banner button, .recent-chip button, summary):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -624,6 +699,14 @@ body {
   .status button {
     min-height: 44px;
     padding: 9px 20px;
+  }
+  /* Taller chips so both the name and the always-visible × (hover: none)
+     are comfortable thumb targets. */
+  .recent-go {
+    padding: 10px 4px 10px 14px;
+  }
+  .recent-remove {
+    padding: 0 13px 0 8px;
   }
   /* Padding grows the × dismiss to a ~44px hit area; the negative margins
      cancel the growth visually so the banner row looks unchanged. */
