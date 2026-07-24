@@ -498,10 +498,13 @@ body {
   padding: 4px 10px;
   border-bottom: 1px solid var(--grid);
 }
-/* .num is set by table.ts on numeric cells. */
+/* .num is set by table.ts on numeric cells AND their headers. */
 .table-scroll td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.table-scroll th.num {
+  text-align: right;
 }
 
 /* ---- windows list ---- */
