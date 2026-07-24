@@ -26,7 +26,7 @@ export function scoreColor(product: number): string {
   const t = Math.min(1, Math.max(0, product))
   // Below the first anchor / above the last: the pure end colors.
   if (t <= ANCHORS[0]) return 'var(--scale-0)'
-  if (t >= ANCHORS[ANCHORS.length - 1]) return 'var(--scale-4)'
+  if (t >= ANCHORS[ANCHORS.length - 1]) return `var(--scale-${ANCHORS.length - 1})`
   // Find the anchor pair that brackets t...
   let i = 0
   while (t > ANCHORS[i + 1]) i++
