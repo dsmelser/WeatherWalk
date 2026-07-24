@@ -1,33 +1,32 @@
-import { BAND_FLOORS } from '../core/scoring'
-
 /**
  * score → color, as a CSS expression rather than a computed hex.
  *
- * The five band colors live in CSS as tokens (--band-0 … --band-4 in
- * styles.css, one per quality band, bad → excellent). If this file computed
- * a hex value in JS it would bake in whichever theme was active at render
- * time; returning `var(...)` / `color-mix(...)` strings instead means the
- * browser re-resolves the color whenever the theme changes — dark mode
- * recolors every bar without a re-render.
+ * The five anchor colors live in CSS as tokens (--scale-0 … --scale-4 in
+ * styles.css). If this file computed a hex value in JS it would bake in
+ * whichever theme was active at render time; returning `var(...)` /
+ * `color-mix(...)` strings instead means the browser re-resolves the color
+ * whenever the theme changes — dark mode recolors every bar without a
+ * re-render.
  */
 
-/** Products where each band hue is purest — the centers of the qualityBand
- * ranges, derived from the shared floors so the ramp can't drift from them. */
-const EDGES = [0, BAND_FLOORS.poor, BAND_FLOORS.fair, BAND_FLOORS.good, BAND_FLOORS.excellent, 1]
-const ANCHORS = EDGES.slice(0, -1).map((edge, i) => (edge + EDGES[i + 1]) / 2)
+/** Products where each anchor hue is purest — fixed at display scores
+ * 0/25/50/75/100 (red/orange/yellow/green/blue). Deliberately even spacing,
+ * NOT the qualityBand centers: color is a pure function of the score, and
+ * the band words stay label-only. */
+const ANCHORS = [0, 0.25, 0.5, 0.75, 1]
 
 /**
- * Continuous fill for a raw product: a mix of the two nearest band tokens,
+ * Continuous fill for a raw product: a mix of the two nearest scale tokens,
  * so color tracks the score smoothly instead of snapping at band edges.
- * Returned as a CSS expression (not a hex) so var(--band-N) still resolves
+ * Returned as a CSS expression (not a hex) so var(--scale-N) still resolves
  * per theme and dark mode keeps working without a re-render.
  */
 export function scoreColor(product: number): string {
   // Clamp to [0,1] so out-of-range inputs can't index past the anchors.
   const t = Math.min(1, Math.max(0, product))
   // Below the first anchor / above the last: the pure end colors.
-  if (t <= ANCHORS[0]) return 'var(--band-0)'
-  if (t >= ANCHORS[ANCHORS.length - 1]) return 'var(--band-4)'
+  if (t <= ANCHORS[0]) return 'var(--scale-0)'
+  if (t >= ANCHORS[ANCHORS.length - 1]) return `var(--scale-${ANCHORS.length - 1})`
   // Find the anchor pair that brackets t...
   let i = 0
   while (t > ANCHORS[i + 1]) i++
@@ -39,5 +38,5 @@ export function scoreColor(product: number): string {
   // [post-2019] color-mix() blends two colors in a chosen color space at
   // paint time; oklch is perceptually uniform so the midpoint LOOKS halfway.
   // See docs/MODERN-JS-PRIMER.md.
-  return `color-mix(in oklch, var(--band-${i}) ${pct}%, var(--band-${i + 1}))`
+  return `color-mix(in oklch, var(--scale-${i}) ${pct}%, var(--scale-${i + 1}))`
 }

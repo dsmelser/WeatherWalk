@@ -144,7 +144,9 @@ export function scoreHour(h: HourData): ScoredHour {
 export type QualityBand = 'excellent' | 'good' | 'fair' | 'poor' | 'bad'
 
 /** Product floor of each band above "bad" — the one source of truth for the
- * band cutoffs, also anchoring the color ramp and the walk-window threshold.
+ * band cutoffs, also setting the walk-window threshold and the legend-swatch
+ * positions. (The color ramp itself is score-anchored in src/ui/color.ts and
+ * deliberately independent of these floors.)
  * `as const` freezes the types to these literal values (runtime unaffected). */
 export const BAND_FLOORS = { poor: 0.1, fair: 0.3, good: 0.5, excellent: 0.75 } as const
 

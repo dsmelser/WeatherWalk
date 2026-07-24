@@ -7,10 +7,11 @@
    scope below re-themes everything — no other selector changes needed. See
    docs/MODERN-JS-PRIMER.md.
 
-   The palette is the reference dataviz palette (chrome/ink + CVD-validated
-   5-hue band scale). --band-0 … --band-4 are the five quality-band colors
-   (bad → excellent); the chart blends between them per score (color-mix in
-   src/ui/color.ts), so they must stay in this worst-to-best order.
+   The palette is the reference dataviz palette (chrome/ink + CVD-checked
+   score scale). --scale-0 … --scale-4 are the anchor colors at scores
+   0/25/50/75/100 (red → orange → yellow → green → blue, worst to best);
+   the chart blends between them per score (color-mix in src/ui/color.ts),
+   so they must stay in this order.
 
    Theming is a three-layer cascade:
      1. :root                     — light theme (the default)
@@ -39,11 +40,11 @@
   --day: rgba(237, 161, 0, 0.22);
   --status-warning: #fab219;
   --status-critical: #d03b3b;
-  --band-0: #e34948;
-  --band-1: #4a3aa7;
-  --band-2: #2a78d6;
-  --band-3: #008300;
-  --band-4: #eda100;
+  --scale-0: #e34948;
+  --scale-1: #eb6834;
+  --scale-2: #eda100;
+  --scale-3: #008300;
+  --scale-4: #2a78d6;
 }
 /* [post-2019] prefers-color-scheme: the OS/browser dark-mode setting.
    :where() contributes ZERO specificity — so this rule stays at the same
@@ -64,11 +65,11 @@
     --accent: #3987e5;
     --night: rgba(0, 0, 0, 0.35);
     --day: rgba(250, 178, 25, 0.12);
-    --band-0: #e66767;
-    --band-1: #8a46d2;
-    --band-2: #3987e5;
-    --band-3: #008300;
-    --band-4: #c98500;
+    --scale-0: #e66767;
+    --scale-1: #d95926;
+    --scale-2: #c98500;
+    --scale-3: #008300;
+    --scale-4: #3987e5;
   }
 }
 /* Same dark values, selectable by attribute (higher specificity than the
@@ -86,11 +87,11 @@
   --accent: #3987e5;
   --night: rgba(0, 0, 0, 0.35);
   --day: rgba(250, 178, 25, 0.12);
-  --band-0: #e66767;
-  --band-1: #8a46d2;
-  --band-2: #3987e5;
-  --band-3: #008300;
-  --band-4: #c98500;
+  --scale-0: #e66767;
+  --scale-1: #d95926;
+  --scale-2: #c98500;
+  --scale-3: #008300;
+  --scale-4: #3987e5;
 }
 
 * {
@@ -316,7 +317,7 @@ body {
   stroke: var(--baseline);
   stroke-width: 1;
 }
-/* Bar fill is inline (scoreColor mixes the band tokens per hour). */
+/* Bar fill is inline (scoreColor mixes the scale tokens per hour). */
 .chart-bar.is-active {
   /* Highlight = brighten the bar's own color, so it works for every hue. */
   filter: brightness(1.18);
@@ -359,21 +360,6 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 3px;
-}
-.band-bg-0 {
-  background: var(--band-0);
-}
-.band-bg-1 {
-  background: var(--band-1);
-}
-.band-bg-2 {
-  background: var(--band-2);
-}
-.band-bg-3 {
-  background: var(--band-3);
-}
-.band-bg-4 {
-  background: var(--band-4);
 }
 .band-key-note {
   margin-left: auto;

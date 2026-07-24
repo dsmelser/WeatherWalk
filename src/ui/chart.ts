@@ -1,3 +1,4 @@
+import { BAND_FLOORS } from '../core/scoring'
 import { dayKey, formatDayLabel, formatTime, hourOf } from '../core/time'
 import type { ScoredHour } from '../types'
 import { renderTable } from './table'
@@ -382,17 +383,21 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
 
 /**
  * Scale key under the chart — the five named bands as reference points on
- * the continuous color scale (bar fills are blends between these).
+ * the continuous color scale. Each swatch is scoreColor at its band's center
+ * product, so the key shows what that band actually looks like on the bars
+ * (the color ramp is anchored to scores, not to band boundaries).
  */
 function bandKey(): HTMLElement {
   const key = document.createElement('div')
   key.className = 'band-key'
   const bands = ['bad', 'poor', 'fair', 'good', 'excellent']
+  const edges = [0, BAND_FLOORS.poor, BAND_FLOORS.fair, BAND_FLOORS.good, BAND_FLOORS.excellent, 1]
   bands.forEach((name, i) => {
     const item = document.createElement('span')
     item.className = 'band-key-item'
     const swatch = document.createElement('span')
-    swatch.className = `band-swatch band-bg-${i}`
+    swatch.className = 'band-swatch'
+    swatch.style.background = scoreColor((edges[i] + edges[i + 1]) / 2)
     const label = document.createElement('span')
     label.textContent = name
     item.append(swatch, label)
