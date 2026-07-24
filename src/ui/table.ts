@@ -25,11 +25,15 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
 
   const thead = document.createElement('thead')
   const headRow = document.createElement('tr')
-  for (const h of ['Hour', 'Score', 'Rating', 'Temp °F', 'Dew pt °F', 'Rain %', 'UV', 'AQI', 'Night']) {
+  const headers = ['Hour', 'Score', 'Rating', 'Temp °F', 'Dew pt °F', 'Rain %', 'UV', 'AQI', 'Night']
+  headers.forEach((h, i) => {
     const th = document.createElement('th')
     th.textContent = h
+    // Same 1-7 rule as the data cells below — a numeric column's header
+    // right-aligns so it sits over its right-aligned values.
+    if (i > 0 && i < 8) th.className = 'num'
     headRow.append(th)
-  }
+  })
   thead.append(headRow)
 
   const tbody = document.createElement('tbody')
