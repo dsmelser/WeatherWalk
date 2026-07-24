@@ -96,13 +96,35 @@ function updateRecents(next: RecentLocation[]): void {
 }
 
 function paintRecents(): void {
+  // Visibility stays here, not in renderRecents — main.ts owns show/hide.
+  recentsEl.hidden = recents.length === 0
   renderRecents(recentsEl, recents, {
     onSelect: (zip) => {
       input.value = zip
       void run(zip)
     },
-    onRemove: (zip) => updateRecents(removeRecent(recents, zip)),
+    onRemove: removeRecentChip,
   })
+}
+
+/**
+ * Removing a chip is more than a list update: the last-ZIP memory must
+ * forget a removed location too (or the startup auto-run would re-add the
+ * chip on the next visit, silently undoing the delete), and the rebuild
+ * destroys the button the user just pressed, so focus is handed to the chip
+ * now occupying that slot (keyboard users stay in the strip instead of
+ * being dumped back to <body>).
+ */
+function removeRecentChip(zip: string): void {
+  const idx = recents.findIndex((r) => r.zip === zip)
+  updateRecents(removeRecent(recents, zip))
+  try {
+    if (localStorage.getItem(LAST_ZIP_KEY) === zip) localStorage.removeItem(LAST_ZIP_KEY)
+  } catch {
+    // storage unavailable — nothing to forget
+  }
+  const removes = recentsEl.querySelectorAll<HTMLButtonElement>('.recent-remove')
+  removes[Math.min(idx, removes.length - 1)]?.focus()
 }
 
 /** Progress line ("Looking up 21201…"). Announced politely via aria-live. */

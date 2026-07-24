@@ -59,6 +59,12 @@ describe('removeRecent', () => {
   it('is a no-op for a ZIP not in the list', () => {
     expect(removeRecent([bmore], '99999')).toEqual([bmore])
   })
+
+  it('does not mutate the input list', () => {
+    const original = [bmore, nyc]
+    removeRecent(original, '21201')
+    expect(original).toEqual([bmore, nyc])
+  })
 })
 
 describe('parseRecents', () => {
@@ -77,6 +83,18 @@ describe('parseRecents', () => {
   it('keeps valid entries and drops malformed ones', () => {
     const raw = JSON.stringify([bmore, { zip: 12345 }, null, 'junk', nyc])
     expect(parseRecents(raw)).toEqual([bmore, nyc])
+  })
+
+  it('drops entries whose zip is not exactly five digits', () => {
+    // A chip click feeds the stored zip straight into a fetch URL — junk
+    // must not survive the read-back (same rule as the ww:lastZip auto-run).
+    const raw = JSON.stringify([
+      { zip: 'garbage', place: 'Nowhere' },
+      { zip: '1234', place: 'Short' },
+      { zip: '123456', place: 'Long' },
+      bmore,
+    ])
+    expect(parseRecents(raw)).toEqual([bmore])
   })
 
   it('round-trips a list addRecent built', () => {

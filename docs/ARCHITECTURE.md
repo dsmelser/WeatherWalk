@@ -167,6 +167,8 @@ break them.
 - `tests/merge.test.ts` — the timestamp join, null handling, 72h slicing,
   and the wall-clock formatting helpers.
 - `tests/windows.test.ts` — run detection: bounds, threshold edge, gaps.
+- `tests/recents.test.ts` — recent-searches list rules: ordering,
+  dedupe-by-ZIP, the cap, and safe parsing of stored JSON.
 - `tests/api.test.ts` — offline *request-contract* tests: stub `fetch`,
   assert the exact query parameters. Losing `temperature_unit=fahrenheit`
   or `timezone=auto` would silently mis-score every hour; these pin it.

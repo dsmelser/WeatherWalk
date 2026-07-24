@@ -14,14 +14,29 @@ export interface RecentsHandlers {
   onRemove: (zip: string) => void
 }
 
+/**
+ * Wraps a chip-button handler so only deliberate activations get through.
+ * Removing a chip synchronously rebuilds the strip and the flex row
+ * re-centers — so the second click of a double-click would be hit-tested
+ * against the NEW layout and land on whichever neighbor slid under the
+ * pointer. Repeat clicks carry detail > 1 (keyboard activation is detail 0),
+ * so dropping them makes a double-click act once instead of twice.
+ */
+function deliberate(handler: () => void): (e: MouseEvent) => void {
+  return (e) => {
+    if (e.detail > 1) return
+    handler()
+  }
+}
+
 export function renderRecents(
   container: HTMLElement,
   list: RecentLocation[],
   handlers: RecentsHandlers,
 ): void {
   container.replaceChildren()
-  // The strip only exists when there's something in it — no empty state.
-  container.hidden = list.length === 0
+  // Visibility is main.ts's job (it owns all show/hide state) — this
+  // module only builds the list, which is simply empty when list is [].
   if (list.length === 0) return
 
   const ul = document.createElement('ul')
@@ -38,14 +53,14 @@ export function renderRecents(
     go.textContent = r.place
     // The chip shows the friendly name; the ZIP itself is one hover away.
     go.title = `ZIP ${r.zip}`
-    go.addEventListener('click', () => handlers.onSelect(r.zip))
+    go.addEventListener('click', deliberate(() => handlers.onSelect(r.zip)))
 
     const remove = document.createElement('button')
     remove.type = 'button'
     remove.className = 'recent-remove'
     remove.textContent = '×'
     remove.setAttribute('aria-label', `Remove ${r.place}`)
-    remove.addEventListener('click', () => handlers.onRemove(r.zip))
+    remove.addEventListener('click', deliberate(() => handlers.onRemove(r.zip)))
 
     li.append(go, remove)
     ul.append(li)

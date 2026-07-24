@@ -37,12 +37,16 @@ export function parseRecents(raw: string | null): RecentLocation[] {
   try {
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
-    // [post-2019] The `e is RecentLocation` return type makes this filter a
-    // type guard: TypeScript narrows the array's element type for us.
+    // The `e is RecentLocation` return type makes this filter a type
+    // predicate: TypeScript narrows the array's element type for us — see
+    // docs/MODERN-JS-PRIMER.md. The zip check applies the same 5-digit rule
+    // every other stored-ZIP read-back does (main.ts's auto-run), since a
+    // chip click feeds this string straight into a fetch URL.
     return parsed
       .filter(
         (e): e is RecentLocation =>
           typeof (e as RecentLocation)?.zip === 'string' &&
+          /^\d{5}$/.test((e as RecentLocation).zip) &&
           typeof (e as RecentLocation)?.place === 'string',
       )
       .slice(0, MAX_RECENTS)

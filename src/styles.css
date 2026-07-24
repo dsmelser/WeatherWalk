@@ -204,7 +204,9 @@ body {
   background: var(--surface-1);
   border: 1px solid var(--baseline);
   border-radius: 999px;
-  overflow: hidden;
+  /* No overflow: hidden here — it would clip the buttons' focus ring
+     (outline + positive offset paints OUTSIDE the border box). The buttons
+     paint no background of their own, so nothing needs clipping. */
 }
 .recent-go {
   font: inherit;
@@ -240,8 +242,11 @@ body {
 .recent-remove:hover {
   color: var(--status-critical);
 }
-/* Touch screens have no hover — the × is simply always visible there. */
-@media (hover: none) {
+/* No hover, no reveal — so the × is always visible wherever touch is in
+   play. hover: none alone misses hybrids (Surface-style laptops report the
+   MOUSE as primary pointer, so hover matches even for a finger); any-pointer:
+   coarse catches any device with a touch screen at all. */
+@media (hover: none), (any-pointer: coarse) {
   .recent-remove {
     opacity: 1;
   }
@@ -700,13 +705,14 @@ body {
     min-height: 44px;
     padding: 9px 20px;
   }
-  /* Taller chips so both the name and the always-visible × (hover: none)
-     are comfortable thumb targets. */
+  /* ~44px-tall chips: the name button's min-height sets the chip's height
+     and align-items: stretch carries the × along with it. */
   .recent-go {
-    padding: 10px 4px 10px 14px;
+    min-height: 44px;
+    padding: 0 4px 0 14px;
   }
   .recent-remove {
-    padding: 0 13px 0 8px;
+    padding: 0 15px 0 10px;
   }
   /* Padding grows the × dismiss to a ~44px hit area; the negative margins
      cancel the growth visually so the banner row looks unchanged. */
