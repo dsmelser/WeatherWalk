@@ -376,7 +376,7 @@ focus rule at the bottom).
 ### `color-mix()` and the OKLCH color space (2023)
 
 ```js
-`color-mix(in oklch, var(--band-2) 40%, var(--band-3))`
+`color-mix(in oklch, var(--scale-2) 40%, var(--scale-3))`
 ```
 
 A CSS *function* that blends two colors at a ratio, resolved by the browser
