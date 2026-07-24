@@ -2,7 +2,7 @@
    Design tokens & theming
    ----------------------------------------------------------------------------
    Every color in the app is a CSS custom property ("CSS variable") declared
-   here and read elsewhere with var(--name). [post-2019] Custom properties
+   here and read elsewhere with var(--name). [modern] Custom properties
    cascade and inherit like any CSS property, so redefining them in a darker
    scope below re-themes everything — no other selector changes needed. See
    docs/MODERN-JS-PRIMER.md.
@@ -23,7 +23,7 @@
    preference. There is no toggle in the UI today; the wiring is just ready.
 
    color-scheme tells the BROWSER which scheme the page uses, so built-in UI
-   (form controls, scrollbars) matches. [post-2019]
+   (form controls, scrollbars) matches. [modern]
    ========================================================================== */
 :root {
   color-scheme: light;
@@ -46,7 +46,7 @@
   --scale-3: #008300;
   --scale-4: #2a78d6;
 }
-/* [post-2019] prefers-color-scheme: the OS/browser dark-mode setting.
+/* [modern] prefers-color-scheme: the OS/browser dark-mode setting.
    :where() contributes ZERO specificity — so this rule stays at the same
    specificity as plain :root, and the [data-theme='dark'] attribute rule
    below can always outrank it. The :not([data-theme='light']) guard lets an
@@ -350,7 +350,7 @@ body {
 }
 .hero-figure {
   margin: 2px 0;
-  /* [post-2019] clamp(min, preferred, max): fluid type that tracks the
+  /* [modern] clamp(min, preferred, max): fluid type that tracks the
      viewport (8vw) but never leaves 40-54px. docs/MODERN-JS-PRIMER.md. */
   font-size: clamp(40px, 8vw, 54px);
   font-weight: 650;
@@ -385,7 +385,7 @@ body {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-/* [post-2019] :focus-visible: a ring for keyboard focus (Tab) but not for
+/* [modern] :focus-visible: a ring for keyboard focus (Tab) but not for
    mouse clicks. docs/MODERN-JS-PRIMER.md. */
 .chart-holder:focus-visible {
   outline: 2px solid var(--accent);
@@ -417,7 +417,7 @@ body {
 .chart-tick {
   fill: var(--muted);
   font-size: 11px;
-  /* [post-2019] tabular-nums: equal-width digits so columns of numbers
+  /* [modern] tabular-nums: equal-width digits so columns of numbers
      align and don't jiggle. Used on every numeric readout below too. */
   font-variant-numeric: tabular-nums;
 }
@@ -481,7 +481,7 @@ body {
   font-size: 13px;
 }
 .table-scroll th {
-  /* [post-2019-ish] position: sticky pins the header row to the top of the
+  /* [modern] position: sticky pins the header row to the top of the
      scrolling container while the body scrolls under it. The background is
      required — sticky elements are transparent by default and rows would
      show through. */
@@ -746,7 +746,7 @@ body {
 }
 
 /* Shared keyboard-focus ring for everything except the chart holder (which
-   has its own above). [post-2019] :is() groups selectors — this expands to
+   has its own above). [modern] :is() groups selectors — this expands to
    four separate :focus-visible rules. docs/MODERN-JS-PRIMER.md. */
 :is(#zip-input, .status button, .banner button, .recent-chip button, .settings input, .settings button, summary):focus-visible {
   outline: 2px solid var(--accent);

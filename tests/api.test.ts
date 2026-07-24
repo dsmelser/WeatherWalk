@@ -14,7 +14,7 @@ function okJson(body: unknown): Response {
 }
 
 /** Replaces global fetch with a fake that records the requested URL and
- * returns `body`. [post-2019] vi.stubGlobal is Vitest's global-swapping
+ * returns `body`. [modern] vi.stubGlobal is Vitest's global-swapping
  * helper; vi.unstubAllGlobals below restores the real fetch after each
  * test. See docs/MODERN-JS-PRIMER.md (Tooling). */
 function captureFetch(body: unknown): { url: () => URL } {

@@ -6,8 +6,8 @@ API key, no framework, and no runtime dependency — the browser talks
 directly to free public APIs.
 
 If any syntax or browser API in the code looks unfamiliar, see
-[MODERN-JS-PRIMER.md](MODERN-JS-PRIMER.md) — it covers every post-2019
-feature this repo uses.
+[MODERN-JS-PRIMER.md](MODERN-JS-PRIMER.md) — it covers every modern (or
+easily-forgotten) feature this repo uses.
 
 ## The pipeline
 

@@ -98,7 +98,7 @@ function barPath(x: number, w: number, h: number): string {
   ].join(' ')
 }
 
-// [post-2019] Each render registers a ResizeObserver plus document-level
+// [modern] Each render registers a ResizeObserver plus document-level
 // listeners that outlive the SVG; this WeakMap remembers a disposer per
 // container so the NEXT render can tear the previous chart's down (see the
 // first line of renderChart). WeakMap keys don't keep the element alive —
@@ -115,7 +115,7 @@ const cleanups = new WeakMap<HTMLElement, () => void>()
 export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltipEl: HTMLElement): void {
   // Re-rendering (new ZIP, retry): tear down the previous chart's observer
   // and document-level listeners so they can't fire against elements we're
-  // about to replace. [post-2019] `?.` — run only if a cleanup exists.
+  // about to replace. [modern] `?.` — run only if a cleanup exists.
   cleanups.get(container)?.()
 
   // Static wrapper, built once per render (draw() only replaces the SVG):
@@ -357,7 +357,7 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
   }
 
   // --- interaction ------------------------------------------------------
-  // [post-2019] Pointer Events unify mouse/touch/pen; e.pointerType tells
+  // [modern] Pointer Events unify mouse/touch/pen; e.pointerType tells
   // them apart (see docs/MODERN-JS-PRIMER.md). All listeners sit on the
   // holder and use idxFromX — event delegation, no per-bar listeners.
   // Interaction model:
@@ -448,7 +448,7 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     // Keyboard-initiated focus only. Pointer clicks/taps also focus the
     // holder (tabindex), but they manage their own highlight — entering
     // keyboard mode here would snap the tooltip to bar 0 and pin it.
-    // [post-2019] matches(':focus-visible') asks "would the browser show a
+    // [modern] matches(':focus-visible') asks "would the browser show a
     // focus ring?" — true for Tab, false for click. docs/MODERN-JS-PRIMER.md.
     if (!holder.matches(':focus-visible')) return
     if (focusIdx === -1) focusIdx = 0

@@ -7,7 +7,7 @@ on:
     branches: [main]
   workflow_dispatch: # manual "Run workflow" button in the Actions tab
 
-# [post-2019] OIDC-based Pages deploy: id-token lets the workflow prove its
+# [modern] OIDC-based Pages deploy: id-token lets the workflow prove its
 # identity to GitHub Pages with a short-lived token — no stored deploy
 # secret to rotate or leak. See docs/MODERN-JS-PRIMER.md (Tooling).
 permissions:
