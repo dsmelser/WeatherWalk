@@ -8,8 +8,9 @@ in the code, in one place, so the code comments can stay short.
 
 Throughout the source you'll see comments tagged `[modern]`. Each tag marks
 the first use of one of these features in that file and gives a one-line
-explanation; this doc is the full version. Grep for `[modern]` to find them
-all.
+explanation; this doc is the full version. Search for the literal text
+`[modern]` to find them all (fixed-string mode — `grep -F` / `rg -F` —
+since brackets are regex syntax).
 
 A note on the language: this project is written in **TypeScript** (`.ts`
 files), which is JavaScript plus type annotations. The types are erased at

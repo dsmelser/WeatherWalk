@@ -15,10 +15,10 @@ Fully static and client-side: the browser talks directly to free, no-key APIs.
 Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — an end-to-end
 walkthrough of the pipeline, the data shapes, and the design decisions. If
 you've been away from front-end work for a while, read
-[docs/MODERN-JS-PRIMER.md](docs/MODERN-JS-PRIMER.md) first: it explains every
-modern (or easily-forgotten) language feature, browser API, and tool this
-repo uses, with pointers to where each appears. Comments tagged `[modern]`
-throughout the source mark those spots inline.
+[docs/MODERN-JS-PRIMER.md](docs/MODERN-JS-PRIMER.md) first: it explains all
+the modern (or easily-forgotten) language features, browser APIs, and tools
+this repo uses, with pointers to where each appears. Comments tagged
+`[modern]` throughout the source mark those spots inline.
 
 ## Data sources
 

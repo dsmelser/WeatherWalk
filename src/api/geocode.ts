@@ -24,7 +24,7 @@ const TIMEOUT_MS = 10_000
 /**
  * A distinct Error subclass so main.ts can tell "ZIP doesn't exist" apart
  * from other failures with `instanceof` — a typed signal, not a message
- * string to parse. [modern idiom; see docs/MODERN-JS-PRIMER.md]
+ * string to parse. [modern] idiom — see docs/MODERN-JS-PRIMER.md.
  */
 export class ZipNotFoundError extends Error {}
 
