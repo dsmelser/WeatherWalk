@@ -71,7 +71,7 @@ export function renderWindows(container: HTMLElement, windows: WalkWindow[]): vo
     const details = document.createElement('details')
     details.className = 'window-details'
     const summary = document.createElement('summary')
-    summary.textContent = `Factors at peak (${formatTime(peak.ts)})`
+    summary.textContent = `Factors at peak (${formatTime(peak.ts)}) · score ${peak.display}`
     details.append(summary, factorRows(peak))
 
     li.append(head, details)
