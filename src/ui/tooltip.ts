@@ -34,7 +34,7 @@ export interface TooltipAnchor {
 }
 
 export function showTooltip(el: HTMLElement, hour: ScoredHour, anchor: TooltipAnchor): void {
-  // [post-2019] replaceChildren() wipes the previous hour's content (the
+  // [modern] replaceChildren() wipes the previous hour's content (the
   // modern, XSS-free `innerHTML = ''`) — see docs/MODERN-JS-PRIMER.md.
   el.replaceChildren()
 

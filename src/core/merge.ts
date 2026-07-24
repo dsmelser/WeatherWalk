@@ -14,7 +14,7 @@ export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null
   // a Map lookup instead of scanning the air arrays per hour.
   const aqiByTs = new Map<string, number | null>()
   if (air) {
-    // [post-2019] `??` (nullish coalescing) falls back only on null/undefined
+    // [modern] `??` (nullish coalescing) falls back only on null/undefined
     // — see docs/MODERN-JS-PRIMER.md. Here it normalizes a hole in the API
     // array (undefined) to an explicit null.
     air.time.forEach((t, i) => aqiByTs.set(t, air.usAqi[i] ?? null))

@@ -54,7 +54,7 @@ export function factorRows(hour: ScoredHour): HTMLDivElement {
     const mult = document.createElement('span')
     mult.className = 'factor-mult'
     mult.textContent = r.factor == null ? 'not included' : `×${r.factor.toFixed(2)}`
-    // [post-2019] append() takes multiple nodes at once (unlike appendChild).
+    // [modern] append() takes multiple nodes at once (unlike appendChild).
     row.append(value, label, mult)
     box.append(row)
   }

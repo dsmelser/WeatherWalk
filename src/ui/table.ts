@@ -9,7 +9,7 @@ import type { ScoredHour } from '../types'
  * This is the accessibility strategy for the SVG chart (which is
  * aria-hidden): rather than trying to make hand-built SVG screen-reader
  * friendly, ship the same data as a real <table>, which assistive tech
- * already knows how to navigate. [post-2019 usage note] <details>/<summary>
+ * already knows how to navigate. [modern usage note] <details>/<summary>
  * is the browser's built-in, keyboard-accessible collapse widget — no JS.
  */
 export function renderTable(hours: ScoredHour[]): HTMLElement {

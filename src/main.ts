@@ -280,7 +280,7 @@ async function run(zip: string): Promise<void> {
   try {
     const geo = await zipToLatLon(zip)
     showStatus(`Fetching forecast for ${geo.place}…`)
-    // [post-2019] Fetch weather and AQI in parallel. allSettled (unlike
+    // [modern] Fetch weather and AQI in parallel. allSettled (unlike
     // Promise.all) never rejects — it reports each outcome as
     // {status: 'fulfilled', value} or {status: 'rejected', reason}, which
     // lets the two failures mean different things below. See

@@ -1,14 +1,14 @@
-# What changed since 2019 — a field guide to this codebase
+# A field guide to modern practices in this codebase
 
-If you last wrote front-end code around 2019, most of this project will look
-familiar — it's still HTML, CSS, and JavaScript talking to JSON APIs. But the
-platform grew a lot of new syntax and APIs, and this repo uses them freely.
-This doc covers **every** post-2019 (or easily-forgotten) feature that appears
+Most of this project will look familiar if you've written front-end code
+before — it's still HTML, CSS, and JavaScript talking to JSON APIs. But the
+platform keeps growing new syntax and APIs, and this repo uses them freely.
+This doc covers **every** modern (or easily-forgotten) feature that appears
 in the code, in one place, so the code comments can stay short.
 
-Throughout the source you'll see comments tagged `[post-2019]`. Each tag marks
+Throughout the source you'll see comments tagged `[modern]`. Each tag marks
 the first use of one of these features in that file and gives a one-line
-explanation; this doc is the full version. Grep for `post-2019` to find them
+explanation; this doc is the full version. Grep for `[modern]` to find them
 all.
 
 A note on the language: this project is written in **TypeScript** (`.ts`
@@ -32,7 +32,7 @@ throwing `TypeError: Cannot read property 'b' of undefined`. It short-circuits:
 once one link is nullish the rest of the chain is skipped. Works for property
 access (`a?.b`), index access (`a?.[0]`), and calls (`a?.()`).
 
-In 2019 you wrote: `const place = data && data.places && data.places[0]`.
+The old way: `const place = data && data.places && data.places[0]`.
 
 Used in: `src/api/geocode.ts`, `src/api/forecast.ts`, `src/api/airQuality.ts`
 (picking fields out of API responses that might be malformed), `src/ui/chart.ts`
@@ -66,7 +66,7 @@ eyes. `10_000` is `10000`.
 Used in: the API files (`10_000` ms timeouts), `tests/merge.test.ts`
 (`3_600_000` ms per hour).
 
-### Spread in object literals `{...obj}` (ES2018 — existed in 2019, but worth a refresher)
+### Spread in object literals `{...obj}` (ES2018 — not new, just worth a refresher)
 
 ```js
 return { ...h, factors, product, display: displayScore(product) }
@@ -85,7 +85,7 @@ windows[i - 1].hours.at(-1)
 ```
 
 `arr.at(-1)` is the last element — negative indexes count from the end.
-In 2019: `arr[arr.length - 1]`.
+The old way: `arr[arr.length - 1]`.
 
 Used in: `tests/live-api.test.ts`.
 
@@ -131,7 +131,7 @@ own built-in tag-name→type table.
   factor, and the compiler yells if a factor is missing."
 - `type QualityBand = 'excellent' | 'good' | ...` is a *union of string
   literals*: a value of this type can only be one of those exact strings.
-  2019 codebases used enums or plain strings and hoped.
+  Older codebases used enums or plain strings and hoped.
 
 ### TypeScript: type predicates (`arg is Type`)
 
@@ -141,8 +141,8 @@ parsed.filter(
 )
 ```
 
-A function whose return type is `arg is Type` is a *type predicate* (older
-than 2019, but easy to forget): when it returns `true`, TypeScript narrows
+A function whose return type is `arg is Type` is a *type predicate*
+(long-standing, but easy to forget): when it returns `true`, TypeScript narrows
 the argument to that type at the call site. On a `filter` callback the
 narrowing applies to the whole result — `unknown[]` in,
 `RecentLocation[]` out — which is how `parseRecents`
@@ -179,7 +179,7 @@ handler.
 
 ### `fetch` + `async/await` everywhere
 
-Both existed by 2019, but if you were still on jQuery/XHR: `fetch(url)`
+Old news unless you're coming from jQuery/XHR: `fetch(url)`
 returns a promise of a `Response`; `res.ok` is true for HTTP 2xx;
 `await res.json()` parses the body. Note `fetch` does **not** reject on HTTP
 errors like 404 — only on network failure — which is why the code checks
@@ -193,9 +193,8 @@ fetch(url, { signal: AbortSignal.timeout(10_000) })
 ```
 
 Gives a fetch a deadline: after 10 s the request aborts and the promise
-rejects. In 2019 (if you weren't on XHR's `timeout`) this took a manual
-`AbortController` plus a `setTimeout` you had to remember to clear — this is
-the one-line replacement.
+rejects. The old way was a manual `AbortController` plus a `setTimeout` you
+had to remember to clear — this is the one-line replacement.
 
 Used in: all three files in `src/api/`.
 
@@ -223,8 +222,8 @@ fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
 ```
 
 Builds a query string with proper URL-encoding; interpolating it calls its
-`toString()`. Replaces hand-concatenated `?a=1&b=2` strings. Existed in 2019
-but was rarely used before IE11 died. Used in: `src/api/forecast.ts`,
+`toString()`. Replaces hand-concatenated `?a=1&b=2` strings. Long-supported,
+but rarely used before IE11 died. Used in: `src/api/forecast.ts`,
 `src/api/airQuality.ts` (and the tests parse URLs back apart with it).
 
 ### `localStorage` wrapped in `try/catch`
@@ -233,9 +232,9 @@ but was rarely used before IE11 died. Used in: `src/api/forecast.ts`,
 try { localStorage.setItem(key, value) } catch { /* storage unavailable */ }
 ```
 
-Two things changed since 2019: `catch` no longer needs a binding
-(`catch {` instead of `catch (e) {` — ES2019, so brand-new when you left),
-and the defensive wrapper became standard practice because private-browsing
+Two details here: `catch` no longer needs a binding
+(`catch {` instead of `catch (e) {`, ES2019),
+and the defensive wrapper is standard practice because private-browsing
 modes and storage-disabled contexts make **any** localStorage call throw.
 The app treats storage as a nice-to-have: caching and "remember my ZIP" just
 silently don't happen. Used in: `src/api/geocode.ts`, `src/main.ts`.
@@ -247,7 +246,7 @@ silently don't happen. Used in: `src/api/geocode.ts`, `src/main.ts`.
 This app uses **no framework** — no React, no Vue, not even jQuery. Every
 piece of UI is built with `document.createElement`, and "updating" a section
 means wiping it and rebuilding (see `docs/ARCHITECTURE.md` for why that's
-fine here). These are the DOM calls that changed since 2019:
+fine here). These are the DOM calls most likely to be unfamiliar:
 
 ### `element.replaceChildren(...nodes)` (2020)
 
@@ -273,7 +272,7 @@ One event family for mouse, touch, and pen — instead of parallel
 `mousemove`/`touchstart` handlers with duplicated logic. `e.pointerType`
 (`'mouse' | 'touch' | 'pen'`) is how `src/ui/chart.ts` gives touch a
 different behavior (tap-to-pin the tooltip) from mouse (follow the cursor).
-Supported everywhere since ~2019–2020, so it just missed you.
+Universally supported for years now.
 
 ### `ResizeObserver` (2020)
 
@@ -284,8 +283,8 @@ ro.observe(scroll)
 
 Fires a callback whenever an *element's* size changes — not just the window.
 The chart redraws itself to fit its container with this, covering window
-resizes, font loads, and layout shifts in one mechanism. In 2019 you listened
-to `window.resize` and hoped the element tracked the window.
+resizes, font loads, and layout shifts in one mechanism. The old way was
+listening to `window.resize` and hoping the element tracked the window.
 
 Used in: `src/ui/chart.ts`, together with a…
 
@@ -307,7 +306,7 @@ only answer.
 
 CSS's `:focus-visible` matches only when the browser judges focus should be
 *visibly* indicated — keyboard Tab yes, mouse click usually no. That kills
-the 2019-era "outline: none and apologize" problem: keyboard users get focus
+the old "outline: none and apologize" problem: keyboard users get focus
 rings, mouse users don't get spurious ones. The JS form
 `holder.matches(':focus-visible')` (`src/ui/chart.ts`) asks the same question
 in a `focus` event handler, to distinguish keyboard focus from click focus.
@@ -315,7 +314,7 @@ in a `focus` event handler, to distinguish keyboard focus from click focus.
 ### `<details>` / `<summary>`
 
 A built-in collapse/expand widget — no JS, keyboard-accessible for free.
-Existed in 2019 (except in IE/old Edge, which is why nobody used it); now
+Held back for years by IE/old Edge (which is why nobody used it); now
 universal. Used for the chart's table view (`src/ui/table.ts`) and each
 window's factor breakdown (`src/ui/windowsList.ts`).
 
@@ -404,7 +403,7 @@ at paint time. Two things to notice:
   in whichever theme was active at render time.
 - `in oklch` picks the interpolation color space. OKLCH is a *perceptually
   uniform* space (equal steps look equally big to the eye), so a blend
-  halfway between two hues actually looks halfway — mixing in 2019-era RGB
+  halfway between two hues actually looks halfway — mixing in plain sRGB
   tends to detour through gray.
 
 ### `clamp(min, preferred, max)`
@@ -417,12 +416,12 @@ Fluid sizing in one declaration: scale with the viewport (`8vw`) but never
 below 40px or above 54px. Replaces media-query staircases. Used for the hero
 figure in `src/styles.css`.
 
-### CSS Grid (existed in 2019 — used here without IE guilt)
+### CSS Grid (used here without IE guilt)
 
 `.factor-row { grid-template-columns: 6.5em 1fr auto; }` — three columns:
-fixed label width, stretchy middle, content-sized multiplier. In 2019 you may
-have still been floating or flexing everything for IE11's sake; with IE gone,
-grid is just the normal tool for two-dimensional alignment.
+fixed label width, stretchy middle, content-sized multiplier. If you were
+floating or flexing everything for IE11's sake, that era is over — grid is
+just the normal tool for two-dimensional alignment.
 
 ### CSS counters numbering the walk windows
 
@@ -438,8 +437,8 @@ easily mistaken for missing markup when reading `src/ui/windowsList.ts`.
 ### `position: sticky`
 
 The table header row (`.table-scroll th`) sticks to the top of its scrolling
-container while the body scrolls under it. No JS scroll listeners. Solid
-browser support arrived right around 2019.
+container while the body scrolls under it. No JS scroll listeners. Browser
+support has been solid for years.
 
 ### `font-variant-numeric: tabular-nums`
 
@@ -469,7 +468,7 @@ Vite (2020, French for "fast") does two jobs:
   `dist/`.
 
 Config is `vite.config.ts` — ten lines, mostly defaults. Compare with the
-2019 webpack experience of configuring loaders for half a day. One
+old webpack experience of configuring loaders for half a day. One
 project-specific setting: `base: './'` makes all asset URLs relative so the
 build works hosted at any subpath (like GitHub Pages'
 `/WeatherWalk/`).
@@ -507,7 +506,7 @@ they're the compiler's contract.
 
 `.github/workflows/deploy.yml`: every push to `main` runs
 `npm ci → npm test → npm run build` and publishes `dist/` to GitHub Pages.
-Two post-2019 details:
+Two modern details:
 
 - The `permissions: id-token: write` + `actions/deploy-pages` combo is
   **OIDC**-based deployment (2022): the workflow proves its identity to Pages

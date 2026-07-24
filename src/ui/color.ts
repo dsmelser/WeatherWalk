@@ -35,7 +35,7 @@ export function scoreColor(product: number): string {
   // Percentage of the LOWER band in the mix (rounded to 0.1%): frac 0 → 100%
   // band i, frac 1 → 0% band i (i.e. all band i+1).
   const pct = Math.round((1 - frac) * 1000) / 10
-  // [post-2019] color-mix() blends two colors in a chosen color space at
+  // [modern] color-mix() blends two colors in a chosen color space at
   // paint time; oklch is perceptually uniform so the midpoint LOOKS halfway.
   // See docs/MODERN-JS-PRIMER.md.
   return `color-mix(in oklch, var(--scale-${i}) ${pct}%, var(--scale-${i + 1}))`

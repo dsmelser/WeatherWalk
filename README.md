@@ -16,9 +16,9 @@ Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — an end-to-end
 walkthrough of the pipeline, the data shapes, and the design decisions. If
 you've been away from front-end work for a while, read
 [docs/MODERN-JS-PRIMER.md](docs/MODERN-JS-PRIMER.md) first: it explains every
-post-2019 language feature, browser API, and tool this repo uses, with
-pointers to where each appears. Comments tagged `[post-2019]` throughout the
-source mark those spots inline.
+modern (or easily-forgotten) language feature, browser API, and tool this
+repo uses, with pointers to where each appears. Comments tagged `[modern]`
+throughout the source mark those spots inline.
 
 ## Data sources
 

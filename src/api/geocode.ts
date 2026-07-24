@@ -17,14 +17,14 @@ import type { GeoResult } from '../types'
 
 /** localStorage key prefix for cached lookups ("ww:geo:21201"). */
 const CACHE_PREFIX = 'ww:geo:'
-// [post-2019] Numeric separator: 10_000 is just 10000, underscores are for
+// [modern] Numeric separator: 10_000 is just 10000, underscores are for
 // human eyes only — see docs/MODERN-JS-PRIMER.md.
 const TIMEOUT_MS = 10_000
 
 /**
  * A distinct Error subclass so main.ts can tell "ZIP doesn't exist" apart
  * from other failures with `instanceof` — a typed signal, not a message
- * string to parse. [post-2019 idiom; see docs/MODERN-JS-PRIMER.md]
+ * string to parse. [modern idiom; see docs/MODERN-JS-PRIMER.md]
  */
 export class ZipNotFoundError extends Error {}
 
@@ -36,7 +36,7 @@ function readCache(zip: string): GeoResult | null {
     const raw = localStorage.getItem(CACHE_PREFIX + zip)
     if (!raw) return null
     const parsed = JSON.parse(raw) as GeoResult
-    // Sanity-check the shape before trusting it. [post-2019] `?.` (optional
+    // Sanity-check the shape before trusting it. [modern] `?.` (optional
     // chaining) reads a property off a possibly-null value without throwing.
     if (typeof parsed?.lat === 'number' && typeof parsed?.lon === 'number') return parsed
   } catch {
@@ -55,7 +55,7 @@ function writeCache(zip: string, geo: GeoResult): void {
 
 /** Primary provider: Zippopotam's real ZIP database (true ZIP centroids). */
 async function fromZippopotam(zip: string): Promise<GeoResult | 'not-found' | null> {
-  // [post-2019] AbortSignal.timeout gives the fetch a 10s deadline in one
+  // [modern] AbortSignal.timeout gives the fetch a 10s deadline in one
   // line (the promise rejects if it fires) — see docs/MODERN-JS-PRIMER.md.
   const res = await fetch(`https://api.zippopotam.us/us/${zip}`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
