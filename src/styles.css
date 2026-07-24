@@ -282,8 +282,9 @@ body {
 }
 
 /* ---- chart ---- */
-/* On narrow screens the chart keeps its 560px minimum width and this
-   wrapper scrolls horizontally (see draw() in src/ui/chart.ts). */
+/* The chart fits its container width — even on phones. This wrapper only
+   scrolls horizontally below the pathological 240px floor (see draw() in
+   src/ui/chart.ts). */
 .chart-scroll {
   overflow-x: auto;
 }
@@ -292,6 +293,16 @@ body {
    without a replacement. */
 .chart-holder {
   outline: none;
+  /* manipulation = taps are ours, native pan/pinch stay with the browser.
+     The moment the browser recognizes a pan it fires pointercancel on our
+     pointer — that signal is how the touch handlers in chart.ts tell a
+     scroll from a deliberate tap. Also removes the double-tap-zoom delay. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* No long-press text selection/callout on the SVG's tick labels. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 /* [post-2019] :focus-visible: a ring for keyboard focus (Tab) but not for
    mouse clicks. docs/MODERN-JS-PRIMER.md. */
@@ -516,8 +527,8 @@ body {
      getBoundingClientRect math in src/ui/tooltip.ts. */
   position: fixed;
   z-index: 50;
-  /* The tooltip must never steal pointer events from the chart under it —
-     it follows the cursor, so without this it would flicker. */
+  /* A cursor-following tooltip must never steal pointer events from the
+     chart under it — it would flicker. Pinned cards opt back in below. */
   pointer-events: none;
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -525,8 +536,19 @@ body {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
   padding: 10px 12px;
   width: max-content;
-  max-width: 270px;
+  /* Never wider than the viewport minus the 8px margins the placement
+     logic in tooltip.ts keeps on each side. */
+  max-width: min(270px, calc(100vw - 16px));
   font-size: 13px;
+}
+/* A pinned (bar-anchored) card takes taps itself, so tap-to-close works on
+   the card without clicking through to whatever sits underneath it.
+   tooltip.ts toggles the class from the anchor mode. */
+.tooltip.is-pinned {
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .tooltip-head {
   display: flex;
@@ -565,4 +587,73 @@ body {
 :is(#zip-input, .status button, .banner button, summary):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ============================================================================
+   Phone layout (the app's only width breakpoint)
+   ----------------------------------------------------------------------------
+   Below 480px: tighter chrome so the fit-to-width chart gets every pixel,
+   and every control grows to a comfortable (~44px) thumb target. Nothing
+   here restructures the layout — the page is the same single column.
+   ========================================================================== */
+@media (max-width: 480px) {
+  .app {
+    padding: 20px 10px 40px;
+    gap: 12px;
+  }
+  .hero,
+  .chart,
+  .windows {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+  .masthead h1 {
+    font-size: 26px;
+  }
+  .tagline {
+    font-size: 14px;
+  }
+  /* The row fits down to 320px; wrapping is a safety net, not the design. */
+  #zip-form {
+    flex-wrap: wrap;
+  }
+  #zip-input,
+  #zip-submit {
+    min-height: 44px;
+  }
+  .status button {
+    min-height: 44px;
+    padding: 9px 20px;
+  }
+  /* Padding grows the × dismiss to a ~44px hit area; the negative margins
+     cancel the growth visually so the banner row looks unchanged. */
+  .banner button {
+    padding: 13px 16px;
+    margin: -9px -10px -9px auto;
+  }
+  /* ~44px-tall toggle rows. */
+  .table-view summary,
+  .window-details summary {
+    padding: 12px 0;
+  }
+  .band-key {
+    gap: 8px 12px;
+  }
+  /* Full-width basis drops the note onto its own left-aligned line instead
+     of a ragged right-edge float. */
+  .band-key-note {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  .window-head {
+    row-gap: 2px;
+  }
+  .window-details {
+    margin-left: 1.2em;
+  }
+  /* A bit shorter so the sticky header + a screenful of rows fit above
+     the fold. */
+  .table-scroll {
+    max-height: 300px;
+  }
 }

@@ -3,7 +3,7 @@ import { dayKey, formatDayLabel, formatTime, hourOf } from '../core/time'
 import type { ScoredHour } from '../types'
 import { renderTable } from './table'
 import { scoreColor } from './color'
-import { hideTooltip, showTooltip } from './tooltip'
+import { hideTooltip, placeTooltip, showTooltip } from './tooltip'
 
 /**
  * The hourly bar chart — hand-built SVG, no charting library.
@@ -22,17 +22,18 @@ import { hideTooltip, showTooltip } from './tooltip'
  *                                                  ─┴─ HEIGHT = PAD_TOP + PLOT_H + AXIS_H
  *
  * Each of the ~72 hours gets one horizontal "slot" of width slotW =
- * plotW / hours.length; hour i's slot starts at x = PAD_LEFT + i * slotW.
+ * plotW / hours.length; hour i's slot starts at x = padLeft + i * slotW.
  * That index↔pixel mapping is used in both directions: draw() lays bars out
- * with it, and idxFromEvent() inverts it to turn a pointer position back
- * into an hour index (so ONE event listener on the container replaces 72
+ * with it, and idxFromX() inverts it to turn a pointer position back into
+ * an hour index (so ONE event listener on the container replaces 72
  * per-bar listeners — event delegation).
  *
  * Architecture: renderChart() builds the static wrapper once, then defines
  * everything else as closures over shared mutable state:
- *   - focusIdx     the keyboard-focused / touch-pinned hour (-1 = none)
- *   - bars         the current <path> elements, index-aligned with hours
- *   - slotW/plotW  current geometry, refreshed by draw()
+ *   - focusIdx           the keyboard-focused / touch-pinned hour (-1 = none)
+ *   - bars               the current <path> elements, index-aligned with hours
+ *   - slotW/plotW/padLeft  current geometry, refreshed by draw()
+ *   - tapStart           the touch being tracked as a possible tap
  * draw() throws away and rebuilds the whole SVG at the current container
  * width; a ResizeObserver calls it on every size change. The event handlers
  * (bottom of renderChart) read/write the same closure variables — that
@@ -97,12 +98,13 @@ function barPath(x: number, w: number, h: number): string {
   ].join(' ')
 }
 
-// [post-2019] Each render creates a ResizeObserver; this WeakMap remembers
-// the one attached to each container so the NEXT render can disconnect it
-// (see the first line of renderChart). WeakMap keys don't keep the element
-// alive — remove the container from the DOM and the entry (and observer)
-// become garbage-collectable. See docs/MODERN-JS-PRIMER.md.
-const observers = new WeakMap<HTMLElement, ResizeObserver>()
+// [post-2019] Each render registers a ResizeObserver plus document-level
+// listeners that outlive the SVG; this WeakMap remembers a disposer per
+// container so the NEXT render can tear the previous chart's down (see the
+// first line of renderChart). WeakMap keys don't keep the element alive —
+// remove the container from the DOM and the entry (and disposer) become
+// garbage-collectable. See docs/MODERN-JS-PRIMER.md.
+const cleanups = new WeakMap<HTMLElement, () => void>()
 
 /**
  * 72 columns of walkability score (0-100 display scale), colored on the
@@ -111,15 +113,16 @@ const observers = new WeakMap<HTMLElement, ResizeObserver>()
  * and a table-view twin.
  */
 export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltipEl: HTMLElement): void {
-  // Re-rendering (new ZIP, retry): stop the previous chart's observer so it
-  // can't fire draw() against elements we're about to replace.
-  // [post-2019] `?.` — disconnect only if an observer exists.
-  observers.get(container)?.disconnect()
+  // Re-rendering (new ZIP, retry): tear down the previous chart's observer
+  // and document-level listeners so they can't fire against elements we're
+  // about to replace. [post-2019] `?.` — run only if a cleanup exists.
+  cleanups.get(container)?.()
 
   // Static wrapper, built once per render (draw() only replaces the SVG):
   //   container > h2 + .chart-scroll > .chart-holder > svg
   //             + band key + table view
-  // .chart-scroll provides horizontal overflow scrolling on narrow screens;
+  // The chart fits its container width; .chart-scroll only scrolls
+  // horizontally below the pathological 240px floor (see draw()).
   // .chart-holder is the focus/event target.
   container.replaceChildren()
   const title = document.createElement('h2')
@@ -145,17 +148,32 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
   let bars: SVGPathElement[] = []
   let slotW = 0
   let plotW = 0
+  let padLeft = PAD_LEFT
+  // What the tooltip currently displays: 'keyboard' = the pinned/focused
+  // bar's content anchored to the bar, 'pointer' = hover content at the
+  // cursor. The scroll handler must only re-anchor in 'keyboard' mode —
+  // re-anchoring a hover card onto the pinned bar would mismatch content
+  // and position.
+  let shownMode: 'pointer' | 'keyboard' = 'keyboard'
 
   /** Rebuilds the SVG from scratch at the current container width. */
   const draw = (): void => {
-    // 560px floor: below that, bars get too thin — .chart-scroll scrolls
-    // horizontally instead of squeezing further.
-    const width = Math.max(scroll.clientWidth, 560)
+    // Fit-to-width: the chart squeezes to whatever the card gives it, so
+    // phones see all 72 hours with no horizontal scrolling. The 240px floor
+    // never binds on a real phone (~276px of content at a 320px viewport) —
+    // it guards the hidden-container first draw (clientWidth 0) and
+    // pathological widths, where .chart-scroll still scrolls horizontally.
+    const width = Math.max(scroll.clientWidth, 240)
     holder.style.width = `${width}px`
-    plotW = width - PAD_LEFT - PAD_RIGHT
+    // Narrow charts trade some y-axis gutter for plot width ("100" still fits).
+    padLeft = width < 480 ? 30 : PAD_LEFT
+    plotW = width - padLeft - PAD_RIGHT
     slotW = plotW / hours.length
-    // Bar width: fill the slot minus a gap, but stay in [2, MAX_BAR_W].
-    const barW = Math.min(MAX_BAR_W, Math.max(2, slotW - BAR_GAP))
+    // Bar width: fill the slot minus a gap, but stay in [1.5, MAX_BAR_W].
+    // The gap shrinks with the slot (25% of it, at most 2px) so thin slots
+    // keep a ~75% bar / 25% gap duty cycle instead of the gap eating the slot.
+    const gap = Math.min(BAR_GAP, slotW * 0.25)
+    const barW = Math.min(MAX_BAR_W, Math.max(1.5, slotW - gap))
 
     // aria-hidden: assistive tech gets the table view instead (see above).
     const svg = svgEl('svg', { width, height: HEIGHT, 'aria-hidden': 'true' })
@@ -169,7 +187,7 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
       if (i === hours.length || hours[i].isDay !== hours[runStart].isDay) {
         svg.append(
           svgEl('rect', {
-            x: PAD_LEFT + runStart * slotW,
+            x: padLeft + runStart * slotW,
             y: PAD_TOP - 6, // extends 6px above the plot so full bars don't touch the edge
             width: (i - runStart) * slotW,
             height: PLOT_H + 6,
@@ -186,12 +204,12 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
       const y = BASELINE - (v / 100) * PLOT_H
       if (v > 0) {
         svg.append(
-          svgEl('line', { x1: PAD_LEFT, y1: y, x2: PAD_LEFT + plotW, y2: y, class: 'chart-grid' }),
+          svgEl('line', { x1: padLeft, y1: y, x2: padLeft + plotW, y2: y, class: 'chart-grid' }),
         )
       }
       // y + 3 optically centers the text on the line (SVG text anchors at
       // its baseline); text-anchor: end right-aligns against the plot edge.
-      const tick = svgEl('text', { x: PAD_LEFT - 6, y: y + 3, class: 'chart-tick', 'text-anchor': 'end' })
+      const tick = svgEl('text', { x: padLeft - 6, y: y + 3, class: 'chart-tick', 'text-anchor': 'end' })
       tick.textContent = String(v)
       svg.append(tick)
     }
@@ -199,7 +217,7 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     // Midnight boundaries — a vertical line at each day rollover.
     for (let i = 1; i < hours.length; i++) {
       if (hours[i].ts.endsWith('T00:00')) {
-        const x = PAD_LEFT + i * slotW
+        const x = padLeft + i * slotW
         svg.append(svgEl('line', { x1: x, y1: PAD_TOP - 6, x2: x, y2: BASELINE, class: 'chart-midnight' }))
       }
     }
@@ -208,7 +226,7 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     // so highlight() can address bar i directly.
     bars = hours.map((h, i) => {
       // Center the bar in its slot.
-      const x = PAD_LEFT + i * slotW + (slotW - barW) / 2
+      const x = padLeft + i * slotW + (slotW - barW) / 2
       // 1.5px floor keeps a score-0 hour visible as a sliver.
       const barH = Math.max(1.5, (h.display / 100) * PLOT_H)
       const bar = svgEl('path', {
@@ -224,12 +242,22 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
 
     // Baseline on top of bars (square bottoms).
     svg.append(
-      svgEl('line', { x1: PAD_LEFT, y1: BASELINE, x2: PAD_LEFT + plotW, y2: BASELINE, class: 'chart-baseline' }),
+      svgEl('line', { x1: padLeft, y1: BASELINE, x2: padLeft + plotW, y2: BASELINE, class: 'chart-baseline' }),
     )
 
-    // Hour ticks every 6h ("Now" owns slot 0) and a day label per date.
+    // Hour ticks ("Now" owns slot 0) and a day label per date. Tick density
+    // is pixel-driven: 6h ticks where the labels fit, else 12h, else one per
+    // day. The widest label is "midnight" (formatTime spells out 0 and 12),
+    // which sets the spacing minimum.
+    const MIN_TICK_PX = 44 // min center-to-center spacing between tick labels
+    const NOW_CLEAR_PX = 36 // keep-out zone right of the "Now" label
+    const EDGE_CLEAR_PX = 24 // half of "midnight" + margin at the clipping right edge
+    const tickStep = slotW * 6 >= MIN_TICK_PX ? 6 : slotW * 12 >= MIN_TICK_PX ? 12 : 24
+    // At one tick per day, label noon (short, centered in its day) rather
+    // than midnight (wide, and sitting on the day boundary).
+    const tickHour = tickStep === 24 ? 12 : 0
     const now = svgEl('text', {
-      x: PAD_LEFT + slotW / 2,
+      x: padLeft + slotW / 2,
       y: BASELINE + 16,
       class: 'chart-tick chart-now',
       'text-anchor': 'middle',
@@ -237,17 +265,20 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     now.textContent = 'Now'
     svg.append(now)
     hours.forEach((h, i) => {
-      // i >= 3 keeps the first tick from colliding with the "Now" label.
-      if (i >= 3 && hourOf(h.ts) % 6 === 0) {
-        const t = svgEl('text', {
-          x: PAD_LEFT + i * slotW + slotW / 2,
-          y: BASELINE + 16,
-          class: 'chart-tick',
-          'text-anchor': 'middle',
-        })
-        t.textContent = formatTime(h.ts)
-        svg.append(t)
-      }
+      if (hourOf(h.ts) % tickStep !== tickHour) return
+      // Keep-out zones: the "Now" label on the left (at desktop's slotW 12
+      // this matches the old i >= 3 rule) and the SVG's right edge, where a
+      // middle-anchored label would clip to half a word.
+      if (i * slotW < NOW_CLEAR_PX) return
+      if ((hours.length - i - 0.5) * slotW + PAD_RIGHT < EDGE_CLEAR_PX) return
+      const t = svgEl('text', {
+        x: padLeft + i * slotW + slotW / 2,
+        y: BASELINE + 16,
+        class: 'chart-tick',
+        'text-anchor': 'middle',
+      })
+      t.textContent = formatTime(h.ts)
+      svg.append(t)
     })
     // Day labels: find each calendar day's first hour index...
     const dayStarts = new Map<string, number>()
@@ -258,14 +289,17 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     // ...then center a label over each day's span of slots.
     starts.forEach((startIdx, d) => {
       const endIdx = d + 1 < starts.length ? starts[d + 1] : hours.length
-      if (endIdx - startIdx < 5) return // too narrow to label without collision
+      const spanPx = (endIdx - startIdx) * slotW
+      if (spanPx < 34) return // too narrow even for a bare weekday
       const label = svgEl('text', {
-        x: PAD_LEFT + ((startIdx + endIdx) / 2) * slotW,
+        x: padLeft + ((startIdx + endIdx) / 2) * slotW,
         y: BASELINE + 34,
         class: 'chart-day',
         'text-anchor': 'middle',
       })
-      label.textContent = formatDayLabel(hours[startIdx].ts)
+      const full = formatDayLabel(hours[startIdx].ts)
+      // Narrow spans get just the weekday ("Thu, Jul 17" → "Thu").
+      label.textContent = spanPx >= 80 ? full : full.slice(0, 3)
       svg.append(label)
     })
 
@@ -283,59 +317,111 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
 
   /**
    * Highlight bar `idx` and show its tooltip. 'pointer' mode anchors the
-   * tooltip at the cursor (px/py); 'keyboard' mode (also used for touch
-   * pinning) anchors it above the bar itself, computed from the bar's
+   * tooltip beside the cursor (px/py); 'keyboard' mode (also used for touch
+   * pinning) centers it above the bar itself, computed from the bar's
    * on-screen position.
    */
   const highlight = (idx: number, mode: 'pointer' | 'keyboard', px = 0, py = 0): void => {
+    shownMode = mode
     bars.forEach((b, i) => b.classList.toggle('is-active', i === idx))
     if (mode === 'keyboard') {
       const rect = bars[idx].getBoundingClientRect()
-      showTooltip(tooltipEl, hours[idx], rect.left + rect.width / 2, rect.top)
+      showTooltip(tooltipEl, hours[idx], {
+        x: rect.left + rect.width / 2,
+        top: rect.top,
+        bottom: rect.bottom,
+        centered: true,
+      })
     } else {
-      showTooltip(tooltipEl, hours[idx], px, py)
+      showTooltip(tooltipEl, hours[idx], { x: px, top: py, bottom: py, centered: false })
     }
   }
 
   /**
-   * The inverse of the layout math: pointer event → hour index. Take the
+   * The inverse of the layout math: viewport x → hour index. Take the
    * x offset into the plot area and divide by the slot width; -1 means the
-   * pointer is in the padding, outside any slot.
+   * position is in the padding, outside any slot.
    */
-  const idxFromEvent = (e: PointerEvent): number => {
+  const idxFromX = (clientX: number): number => {
     const rect = holder.getBoundingClientRect()
-    const x = e.clientX - rect.left - PAD_LEFT
+    const x = clientX - rect.left - padLeft
     if (x < 0 || x > plotW) return -1
     return Math.min(hours.length - 1, Math.max(0, Math.floor(x / slotW)))
+  }
+
+  /** Is this viewport point on the visible tooltip card? */
+  const inTooltip = (x: number, y: number): boolean => {
+    if (tooltipEl.hidden) return false
+    const r = tooltipEl.getBoundingClientRect()
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
   }
 
   // --- interaction ------------------------------------------------------
   // [post-2019] Pointer Events unify mouse/touch/pen; e.pointerType tells
   // them apart (see docs/MODERN-JS-PRIMER.md). All listeners sit on the
-  // holder and use idxFromEvent — event delegation, no per-bar listeners.
+  // holder and use idxFromX — event delegation, no per-bar listeners.
   // Interaction model:
   //   mouse   hover follows the cursor; click also works
-  //   touch   tap pins the tooltip above the bar (it would die on finger
-  //           lift otherwise); next tap moves it, blur clears it
+  //   touch/  a deliberate tap pins the tooltip above the bar. The browser
+  //   pen     owns scrolling (touch-action: manipulation) and fires
+  //           pointercancel the moment a drag becomes a pan, so a scroll
+  //           gesture never shows anything. Tapping the card, the pinned
+  //           bar again, or anywhere outside dismisses. (A hover-capable
+  //           pen still hovers like a mouse while not touching.)
   //   keys    ←/→ step, Home/End jump, Esc clears (focusIdx tracks the pin)
+  let tapStart: { id: number; x: number; y: number } | null = null
+  const TAP_SLOP = 10 // px of finger travel still counted as a tap
+
   holder.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'touch') return // touch pins via pointerdown
-    const idx = idxFromEvent(e)
+    // Touch, and pen in contact, pin via pointerup; a hovering pen
+    // (buttons === 0) behaves like a mouse.
+    if (e.pointerType === 'touch' || (e.pointerType === 'pen' && e.buttons !== 0)) return
+    const idx = idxFromX(e.clientX)
     if (idx !== -1) highlight(idx, 'pointer', e.clientX, e.clientY)
     else if (focusIdx !== -1) highlight(focusIdx, 'keyboard') // keep the pinned hour
     else clearHighlight()
   })
   holder.addEventListener('pointerdown', (e) => {
-    const idx = idxFromEvent(e)
-    if (idx === -1) return
-    if (e.pointerType === 'touch') {
-      // Pin on tap so the tooltip survives finger lift, anchored above the
-      // bar (out from under the finger). The next tap or a blur re-clears.
-      focusIdx = idx
-      highlight(idx, 'keyboard')
-    } else {
-      highlight(idx, 'pointer', e.clientX, e.clientY)
+    if (e.pointerType !== 'mouse') {
+      // Touch/pen: record only — whether this is a tap or a scroll isn't
+      // knowable yet. pointerup within TAP_SLOP = tap; pointercancel = the
+      // browser took the gesture as a pan and nothing should appear.
+      // (Pinning here, as the code used to, is why scrolling popped up
+      // random tooltips.)
+      tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY }
+      return
     }
+    const idx = idxFromX(e.clientX)
+    if (idx !== -1) highlight(idx, 'pointer', e.clientX, e.clientY)
+  })
+  holder.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse') return
+    const start = tapStart
+    tapStart = null
+    if (!start || start.id !== e.pointerId) return
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP) return
+    // A deliberate tap on the visible card → dismiss. (A pinned card is
+    // pointer-events: auto and handled by the document listener instead;
+    // this branch catches taps on a hover-mode card, which stays
+    // pointer-events: none and passes taps through to us — without it they
+    // would re-pin whichever hour happens to sit under the card.)
+    if (inTooltip(start.x, start.y)) {
+      focusIdx = -1
+      clearHighlight()
+      return
+    }
+    const idx = idxFromX(start.x)
+    if (idx === -1 || idx === focusIdx) {
+      // Padding, or the already-pinned bar: toggle off.
+      focusIdx = -1
+      clearHighlight()
+      return
+    }
+    focusIdx = idx
+    highlight(idx, 'keyboard')
+  })
+  holder.addEventListener('pointercancel', () => {
+    tapStart = null // the browser took the pointer for a scroll/pinch
   })
   holder.addEventListener('pointerleave', () => {
     // Mouse left the chart: fall back to the pinned hour if there is one.
@@ -373,12 +459,54 @@ export function renderChart(container: HTMLElement, hours: ScoredHour[], tooltip
     clearHighlight()
   })
 
+  // --- document-level listeners (removed by the cleanup below) ----------
+  // Outside-tap dismissal. On pointerUP, not pointerdown: a pan fires
+  // pointercancel and never pointerup, so a scroll gesture starting
+  // anywhere on the page preserves the pin — only a completed tap outside
+  // the chart dismisses. (Dismissing on pointerdown would kill the pin the
+  // instant a scroll-finger lands — the bug this file just fixed, again.)
+  let docDown: { id: number; x: number; y: number } | null = null
+  const onDocPointerDown = (e: PointerEvent): void => {
+    docDown = { id: e.pointerId, x: e.clientX, y: e.clientY }
+  }
+  const onDocPointerUp = (e: PointerEvent): void => {
+    const down = docDown
+    docDown = null
+    if (focusIdx === -1) return
+    if (e.target instanceof Node && holder.contains(e.target)) return // the holder's own handler decides
+    // A drag (text selection, scrollbar) is not a tap — keep the pin.
+    if (down && down.id === e.pointerId && Math.hypot(e.clientX - down.x, e.clientY - down.y) > TAP_SLOP) return
+    focusIdx = -1
+    clearHighlight()
+  }
+  document.addEventListener('pointerdown', onDocPointerDown)
+  document.addEventListener('pointerup', onDocPointerUp)
+  // Keep a pinned tooltip glued to its bar while anything scrolls. Capture
+  // phase catches the window AND inner scrollers (.chart-scroll,
+  // .table-scroll); placeTooltip repositions without rebuilding content.
+  const onScroll = (): void => {
+    if (focusIdx === -1 || shownMode !== 'keyboard' || !bars[focusIdx]) return
+    const rect = bars[focusIdx].getBoundingClientRect()
+    placeTooltip(tooltipEl, {
+      x: rect.left + rect.width / 2,
+      top: rect.top,
+      bottom: rect.bottom,
+      centered: true,
+    })
+  }
+  document.addEventListener('scroll', onScroll, { capture: true, passive: true })
+
   // First paint, then redraw on every container size change (window resize,
   // font load, layout shift — ResizeObserver catches them all).
   draw()
   const ro = new ResizeObserver(() => draw())
   ro.observe(scroll)
-  observers.set(container, ro)
+  cleanups.set(container, () => {
+    ro.disconnect()
+    document.removeEventListener('pointerdown', onDocPointerDown)
+    document.removeEventListener('pointerup', onDocPointerUp)
+    document.removeEventListener('scroll', onScroll, { capture: true })
+  })
 }
 
 /**
