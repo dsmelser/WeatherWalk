@@ -21,7 +21,7 @@ import type { FactorScores, HourData, ScoredHour } from '../types'
  */
 
 /** Parameters for the temperature bell curve. */
-interface Bell {
+export interface Bell {
   optimal: number
   /** Gaussian width below the optimum — bigger tolerates cold better. */
   coldSigma: number
@@ -30,11 +30,24 @@ interface Bell {
 }
 
 /** Parameters for a logistic (S-shaped) comfort drop-off. */
-interface Logistic {
+export interface Logistic {
   /** The value where comfort crosses 50%. */
   midpoint: number
   /** Units per e-fold of decline — smaller falls faster. */
   softness: number
+}
+
+/**
+ * Every tunable curve parameter in one bag — what the Advanced-settings
+ * panel edits (src/ui/settings.ts) and scoreHour scores with. Rain has no
+ * entry by design (the user's rule: exactly 1 − p/100, nothing to tune),
+ * and hazard cutoffs stay fixed — they're safety floors, not preferences.
+ */
+export interface ScoringParams {
+  temp: Bell
+  dew: Logistic
+  aqi: Logistic
+  uv: Logistic
 }
 
 /**
@@ -79,26 +92,34 @@ export const AQI_HAZARD = 301
 
 export const UV_COMFORT: Logistic = { midpoint: 7, softness: 2.5 }
 
+/** The hand-tuned constants above, bundled as the default parameter set. */
+export const DEFAULT_PARAMS: ScoringParams = {
+  temp: TEMP_COMFORT,
+  dew: DEW_COMFORT,
+  aqi: AQI_COMFORT,
+  uv: UV_COMFORT,
+}
+
 /** Temperature comfort: the asymmetric bell, with hazard temps forced to 0. */
-export function tempFactor(tempF: number): number {
+export function tempFactor(tempF: number, b: Bell = TEMP_COMFORT): number {
   if (tempF <= TEMP_HAZARD_LOW || tempF >= TEMP_HAZARD_HIGH) return 0
-  return bell(TEMP_COMFORT, tempF)
+  return bell(b, tempF)
 }
 
 /** Humidity comfort, judged by dew point (°F). */
-export function dewFactor(dewPointF: number): number {
-  return logisticFrom0(DEW_COMFORT, dewPointF)
+export function dewFactor(dewPointF: number, l: Logistic = DEW_COMFORT): number {
+  return logisticFrom0(l, dewPointF)
 }
 
 /** Air-quality comfort from US AQI, with Hazardous AQI forced to 0. */
-export function aqiFactor(usAqi: number): number {
+export function aqiFactor(usAqi: number, l: Logistic = AQI_COMFORT): number {
   if (usAqi >= AQI_HAZARD) return 0
-  return logisticFrom0(AQI_COMFORT, usAqi)
+  return logisticFrom0(l, usAqi)
 }
 
 /** UV comfort — the gentlest curve, since UV is the most mitigable factor. */
-export function uvFactor(uvIndex: number): number {
-  return logisticFrom0(UV_COMFORT, uvIndex)
+export function uvFactor(uvIndex: number, l: Logistic = UV_COMFORT): number {
+  return logisticFrom0(l, uvIndex)
 }
 
 /** The user's rule: comfort is simply the probability of staying dry. */
@@ -116,16 +137,21 @@ export function displayScore(product: number): number {
   return Math.round(product * 100)
 }
 
-/** Scores one hour: computes all five factors, multiplies them together. */
-export function scoreHour(h: HourData): ScoredHour {
+/**
+ * Scores one hour: computes all five factors, multiplies them together.
+ * `p` defaults to the hand-tuned constants; the Advanced-settings panel
+ * passes the user's own. (Don't `.map(scoreHour)` — the map index would
+ * land in the params slot; use `.map((h) => scoreHour(h, params))`.)
+ */
+export function scoreHour(h: HourData, p: ScoringParams = DEFAULT_PARAMS): ScoredHour {
   const factors: FactorScores = {
     // `== null` (double equals, on purpose) is true for null AND undefined —
     // the standard compact "is missing" check.
-    aqi: h.usAqi == null ? null : aqiFactor(h.usAqi),
-    dewPoint: dewFactor(h.dewPointF),
+    aqi: h.usAqi == null ? null : aqiFactor(h.usAqi, p.aqi),
+    dewPoint: dewFactor(h.dewPointF, p.dew),
     precip: precipFactor(h.precipProb),
-    temp: tempFactor(h.tempF),
-    uv: uvFactor(h.uvIndex),
+    temp: tempFactor(h.tempF, p.temp),
+    uv: uvFactor(h.uvIndex, p.uv),
   }
   // Multiply only the factors that exist: AQI joins when the forecast covers
   // this hour, otherwise the hour is scored on the other four (a missing
