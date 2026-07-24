@@ -84,22 +84,32 @@ function bell(b: Bell, x: number): number {
 }
 
 /**
- * The drop-off family. Every shape passes through (midpoint, 0.5) — except
+ * The drop-off family. Every shape crosses ≈0.5 at the midpoint — except
  * 'cliff', which jumps straight from 1 to 0 there — so switching shapes
- * keeps the parameters meaningful:
+ * keeps the parameters meaningful. Both continuous shapes are normalized
+ * to pin comfort(0) === 1 ("harmless levels are fully comfortable"), which
+ * is also why the midpoint crossing is 0.5/at0, a hair ABOVE 0.5 when the
+ * un-normalized curve hasn't reached full height by x = 0 (gentle-softness
+ * UV being the visible case: ~0.53 at the default midpoint).
  *
- * - logistic: the smooth S-curve, normalized so comfort(0) === 1.
- * - ramp: a straight line with the logistic's own midpoint slope
- *   (1/(4·softness)), clamped to [0,1] — full comfort until
- *   midpoint − 2·softness, gone at midpoint + 2·softness.
+ * - logistic: the smooth S-curve (slope 1/(4·softness) at the midpoint,
+ *   pre-normalization).
+ * - ramp: the straight line with that same midpoint slope, clamped to
+ *   [0,1] — hits exactly 0 at midpoint + 2·softness.
  * - cliff: binary veto — full comfort below the midpoint, zero at/above.
  */
 function dropOff(d: Drop, x: number): number {
   switch (d.fn) {
     case 'cliff':
       return x < d.midpoint ? 1 : 0
-    case 'ramp':
-      return Math.min(1, Math.max(0, 0.5 - (x - d.midpoint) / (4 * d.softness)))
+    case 'ramp': {
+      // Normalized like the logistic below: for gentle softness the raw
+      // line is still short of 1 at x = 0 (e.g. UV midpoint 7, softness 4
+      // → 0.94), which would tax every night hour for UV that isn't there.
+      const at = Math.min(1, Math.max(0, 0.5 - (x - d.midpoint) / (4 * d.softness)))
+      const at0 = Math.min(1, 0.5 + d.midpoint / (4 * d.softness))
+      return Math.min(1, at / at0)
+    }
     case 'logistic': {
       // Standard logistic 1 / (1 + e^((x - mid) / softness)): ≈1 far below
       // the midpoint, exactly 0.5 at it, →0 far above. But at x = 0 it's

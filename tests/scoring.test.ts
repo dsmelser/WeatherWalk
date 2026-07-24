@@ -181,6 +181,17 @@ describe('curve shape families', () => {
     }
   })
 
+  it('normalization keeps comfort(0) === 1 even for gentle-softness ramps', () => {
+    // The UV/AQI spec ranges allow softness > midpoint/2, where the raw
+    // ramp line is still below 1 at x = 0 (dew ranges can never get there,
+    // so testing dew alone would miss a regression here). Without the
+    // normalization these were 0.94, 0.58, and 0.63 — a tax on night hours
+    // and pristine air.
+    expect(uvFactor(0, { fn: 'ramp', midpoint: 7, softness: 4 })).toBe(1)
+    expect(uvFactor(0, { fn: 'ramp', midpoint: 2, softness: 6 })).toBe(1)
+    expect(aqiFactor(0, { fn: 'ramp', midpoint: 50, softness: 100 })).toBe(1)
+  })
+
   it('hazard zeros apply no matter the shape', () => {
     expect(tempFactor(110, { ...TEMP_COMFORT, fn: 'cauchy' })).toBe(0)
     expect(tempFactor(-20, { ...TEMP_COMFORT, fn: 'tent' })).toBe(0)

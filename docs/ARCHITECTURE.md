@@ -151,11 +151,13 @@ native `<details>/<summary>`.
 
 ## Scoring model in one paragraph
 
-Each factor maps to a "percent comfort" in [0,1] through a smooth curve
-(`src/core/scoring.ts`): temperature through an asymmetric Gaussian bell
-(wider on the cold side — clothing fixes cold, nothing fixes heat), dew
-point / AQI / UV through normalized logistic drop-offs, and rain is simply
-the probability of staying dry (1 − p/100). The hour's score is the plain
+Each factor maps to a "percent comfort" in [0,1] through a selectable curve
+(`src/core/scoring.ts`): temperature through an asymmetric bell — Gaussian
+by default, with Cauchy (fat-tailed) and tent (linear) variants — wider on
+the cold side (clothing fixes cold, nothing fixes heat); dew point / AQI /
+UV through drop-offs — a normalized logistic by default, with ramp (linear)
+and cliff (binary cutoff) variants; and rain is simply the probability of
+staying dry (1 − p/100). The hour's score is the plain
 **product** of the factors, so one terrible factor vetoes the hour while
 several mild imperfections only dent it — and the ×multipliers shown in the
 tooltip literally multiply to the displayed score. Hazards (AQI ≥ 301,

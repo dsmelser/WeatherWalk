@@ -1,5 +1,13 @@
 import type { ScoringParams } from '../core/scoring'
-import { aqiFactor, dewFactor, tempFactor, uvFactor } from '../core/scoring'
+import {
+  AQI_HAZARD,
+  TEMP_HAZARD_HIGH,
+  TEMP_HAZARD_LOW,
+  aqiFactor,
+  dewFactor,
+  tempFactor,
+  uvFactor,
+} from '../core/scoring'
 import {
   BELL_FNS,
   DROP_FNS,
@@ -48,10 +56,13 @@ const PREVIEWS: Record<(typeof GROUPS)[number], CurveSpec> = {
       { at: 60, tick: '60', label: 'mild 60°' },
       { at: 90, tick: '90', label: 'hot 90°' },
     ],
+    // Derived from the scoring constants, so a retuned cutoff moves the
+    // shading (and the readout note) along with the curve's zero region.
     hazards: [
-      [-30, -10],
-      [105, 120],
+      [-30, TEMP_HAZARD_LOW],
+      [TEMP_HAZARD_HIGH, 120],
     ],
+    hazardLabel: `hazard ≤ ${TEMP_HAZARD_LOW}° / ≥ ${TEMP_HAZARD_HIGH}°`,
   },
   dew: {
     min: 20,
@@ -74,7 +85,8 @@ const PREVIEWS: Record<(typeof GROUPS)[number], CurveSpec> = {
       { at: 150, tick: '150', label: 'sensitive 150' },
       { at: 200, tick: '200', label: 'unhealthy 200' },
     ],
-    hazards: [[301, 400]],
+    hazards: [[AQI_HAZARD, 400]],
+    hazardLabel: `hazardous ${AQI_HAZARD}+`,
   },
   uv: {
     min: 0,
@@ -144,6 +156,8 @@ export function renderSettings(
     const fn = params[group].fn
     const options = group === 'temp' ? BELL_FNS : DROP_FNS
     const blurb = blurbs.get(group)
+    // [modern] `?.`/`??` — a missing blurb node or unknown fn just means
+    // empty text, not a crash. See docs/MODERN-JS-PRIMER.md.
     if (blurb) blurb.textContent = options.find((o) => o.fn === fn)?.blurb ?? ''
     // 'cliff' has no softness — lock (don't hide) the input so the layout
     // holds still and the value survives switching back.
@@ -189,6 +203,10 @@ export function renderSettings(
     fnRow.append(fnLabel, select)
     const blurb = document.createElement('p')
     blurb.className = 'settings-blurb'
+    // Tie the blurb to the select, so screen readers hear the shape's
+    // description on focus and re-read it after a change.
+    blurb.id = `settings-blurb-${group}`
+    select.setAttribute('aria-describedby', blurb.id)
     blurbs.set(group, blurb)
     fieldset.append(fnRow, blurb)
 

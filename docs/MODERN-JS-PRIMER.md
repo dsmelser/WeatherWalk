@@ -49,7 +49,8 @@ utcOffsetSeconds: data.utc_offset_seconds ?? 0
 `a || b` idiom it does **not** treat `0`, `''`, or `false` as missing — which
 matters here because `0` is a perfectly valid UTC offset and a valid AQI.
 
-Used in: `src/core/merge.ts`, `src/api/forecast.ts`, `src/api/geocode.ts`.
+Used in: `src/core/merge.ts`, `src/api/forecast.ts`, `src/api/geocode.ts`,
+`src/ui/curvePreview.ts`, `src/ui/settings.ts`.
 
 Related idiom you'll see in this repo: `x == null` (double equals, on purpose)
 is true for both `null` and `undefined` and nothing else. It's the standard
@@ -272,7 +273,9 @@ inject HTML. (`src/ui/factors.ts` documents this choice.)
 One event family for mouse, touch, and pen — instead of parallel
 `mousemove`/`touchstart` handlers with duplicated logic. `e.pointerType`
 (`'mouse' | 'touch' | 'pen'`) is how `src/ui/chart.ts` gives touch a
-different behavior (tap-to-pin the tooltip) from mouse (follow the cursor).
+different behavior (tap-to-pin the tooltip) from mouse (follow the cursor),
+and how the settings panel's curve previews (`src/ui/curvePreview.ts`) let
+a tap's probe reading stay pinned while a mouse's clears on leave.
 Universally supported for years now.
 
 ### `ResizeObserver` (2020)
@@ -334,7 +337,8 @@ SVG elements live in a different XML namespace than HTML, so
 `document.createElement('rect')` produces a useless HTML element named
 "rect". You must use
 `document.createElementNS('http://www.w3.org/2000/svg', 'rect')`. That's what
-the `svgEl` helper in `src/ui/chart.ts` wraps. (Not new — just the kind of
+the shared `svgEl` helper in `src/ui/svg.ts` wraps, used by both the hourly
+chart and the settings panel's curve previews. (Not new — just the kind of
 thing nobody remembers until the chart is invisible.)
 
 ### Data-URI SVG favicon

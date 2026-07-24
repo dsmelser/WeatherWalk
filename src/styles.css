@@ -758,6 +758,11 @@ body {
   width: 100%;
   height: auto;
   touch-action: manipulation;
+  /* No long-press text selection/callout on the tick labels (the probe is
+     the intended touch interaction). */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .curve-grid {
   stroke: var(--grid);
@@ -767,10 +772,19 @@ body {
   stroke: var(--baseline);
   stroke-width: 1;
 }
-/* Hazard ranges (always score 0) — a whisper of the critical color. */
+/* Hazard ranges (always score 0): a wash + a crisp edge line at each
+   cutoff. --scale-0 (not --status-critical) because it has a dark-theme
+   value, so the treatment survives both themes; the edge line is what
+   makes the boundary legible even where the wash is faint. */
 .curve-hazard {
-  fill: var(--status-critical);
-  opacity: 0.07;
+  fill: var(--scale-0);
+  opacity: 0.14;
+}
+.curve-hazard-edge {
+  stroke: var(--scale-0);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+  opacity: 0.7;
 }
 .curve-line {
   fill: none;
@@ -785,8 +799,11 @@ body {
   fill: var(--accent);
 }
 .curve-tick {
-  fill: var(--muted);
-  font-size: 9px;
+  /* --text-secondary, not --muted (fails AA on the card surface — see the
+     .settings-note comment), and 11px to match .chart-tick: these render
+     smaller than authored once the viewBox scales down to the column. */
+  fill: var(--text-secondary);
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 .curve-probe {
@@ -880,13 +897,17 @@ body {
   .settings-details summary {
     padding: 12px 0;
   }
-  /* Comfortable touch targets for the parameter inputs and reset button. */
+  /* Comfortable touch targets for the parameter inputs and reset button.
+     16px font is deliberate: iOS Safari auto-zooms the page when a form
+     control under 16px gains focus, and stays zoomed after. */
   .settings-row input {
     min-height: 40px;
     width: 5em;
+    font-size: 16px;
   }
   .settings-fn {
     min-height: 40px;
+    font-size: 16px;
   }
   .settings-reset {
     min-height: 44px;

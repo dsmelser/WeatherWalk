@@ -58,7 +58,8 @@ export const SETTING_SPECS: SettingSpec[] = [
   { group: 'temp', key: 'optimal', label: 'ideal temperature', unit: '°F', min: 40, max: 90, step: 1 },
   { group: 'temp', key: 'coldSigma', label: 'cold tolerance', unit: '°F', min: 5, max: 40, step: 1 },
   { group: 'temp', key: 'hotSigma', label: 'heat tolerance', unit: '°F', min: 5, max: 40, step: 1 },
-  // Logistic drop-offs: the 50%-comfort point and how gently it declines.
+  // Drop-offs: the ~50%-comfort point (cliff's exact cut) and how gently
+  // comfort declines around it (unused by cliff).
   { group: 'dew', key: 'midpoint', label: '50% comfort at', unit: '°F dew point', min: 50, max: 80, step: 1 },
   { group: 'dew', key: 'softness', label: 'falloff softness', unit: '°F', min: 1, max: 15, step: 0.5 },
   { group: 'aqi', key: 'midpoint', label: '50% comfort at', unit: 'AQI', min: 50, max: 300, step: 5 },
