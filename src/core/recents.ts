@@ -42,6 +42,7 @@ export function parseRecents(raw: string | null): RecentLocation[] {
     // docs/MODERN-JS-PRIMER.md. The zip check applies the same 5-digit rule
     // every other stored-ZIP read-back does (main.ts's auto-run), since a
     // chip click feeds this string straight into a fetch URL.
+    const seen = new Set<string>()
     return parsed
       .filter(
         (e): e is RecentLocation =>
@@ -49,6 +50,13 @@ export function parseRecents(raw: string | null): RecentLocation[] {
           /^\d{5}$/.test((e as RecentLocation).zip) &&
           typeof (e as RecentLocation)?.place === 'string',
       )
+      // Re-impose the one-entry-per-ZIP invariant on read-back too (a
+      // hand-edited store could hold duplicates); first = most recent wins.
+      .filter((e) => {
+        if (seen.has(e.zip)) return false
+        seen.add(e.zip)
+        return true
+      })
       .slice(0, MAX_RECENTS)
   } catch {
     return []

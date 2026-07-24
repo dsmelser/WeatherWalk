@@ -85,6 +85,12 @@ describe('parseRecents', () => {
     expect(parseRecents(raw)).toEqual([bmore, nyc])
   })
 
+  it('drops duplicate ZIPs on read-back, keeping the most recent (first)', () => {
+    const stale = { zip: '21201', place: 'Old Baltimore Name' }
+    const raw = JSON.stringify([bmore, nyc, stale, nyc])
+    expect(parseRecents(raw)).toEqual([bmore, nyc])
+  })
+
   it('drops entries whose zip is not exactly five digits', () => {
     // A chip click feeds the stored zip straight into a fetch URL — junk
     // must not survive the read-back (same rule as the ww:lastZip auto-run).
