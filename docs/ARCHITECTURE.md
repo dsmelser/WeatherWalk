@@ -1,7 +1,7 @@
 # Architecture — how WeatherWalk works end to end
 
 WeatherWalk is a fully static, client-side app: one HTML page, one CSS file,
-and ~18 small TypeScript modules bundled by Vite. There is no backend, no
+and ~23 small TypeScript modules bundled by Vite. There is no backend, no
 API key, no framework, and no runtime dependency — the browser talks
 directly to free public APIs.
 
@@ -25,8 +25,13 @@ Everything the app does is one straight line, orchestrated by `run()` in
   Promise.allSettled ── in parallel ──────────────┐
   │ fetchForecast()      src/api/forecast.ts      │ fetchAirQuality()   src/api/airQuality.ts
   │ hourly temp/dew/rain/UV/is_day, 4 days        │ hourly US AQI, 5 days
+  │ 1h TTL cache at ww:wx:<lat,lon>               │ 1h TTL cache at ww:aqi:<lat,lon>
   │ (failure = fatal)                             │ (failure = banner, keep going)
   └──────────────┬───────────────────────────────┘
+  (Both fetchers sit behind a shared TTL cache — src/api/cache.ts. A hit
+  under an hour old skips the network entirely, so reloads and recent-
+  location switches don't re-ping the API; if the network fails, a cached
+  entry up to 6h old is served instead of the error.)
                  ▼
   mergeSeries()                        src/core/merge.ts
   join the two series by timestamp string; drop incomplete hours
@@ -113,11 +118,11 @@ Consequences you'll see everywhere:
 |---|---|---|
 | ZIP not in Zippopotam's database (404) | "ZIP wasn't found" error, **no** retry button | `ZipNotFoundError` thrown in `geocode.ts`, caught in `main.ts` |
 | Geocoding services unreachable | Retryable error ("check your connection") | `geocode.ts` — a fuzzy-search miss is *not* proof the ZIP doesn't exist, so only Zippopotam's 404 is authoritative |
-| Weather fetch fails | Fatal: error + Retry button | `main.ts` — nothing to show without weather |
-| AQI fetch fails | Non-fatal: dismissible banner, scores use 4 factors | `main.ts` (`Promise.allSettled` keeps the weather result) |
+| Weather fetch fails | A cached forecast ≤6h old is served silently instead; with none, fatal: error + Retry button | `cache.ts` stale fallback, then `main.ts` — nothing to show without weather |
+| AQI fetch fails | Same stale fallback first; with none, non-fatal: dismissible banner, scores use 4 factors | `cache.ts`, then `main.ts` (`Promise.allSettled` keeps the weather result) |
 | AQI forecast ends early (null tail) | Non-fatal: banner, affected hours scored without AQI | `merge.ts` sets `usAqi: null` per hour; `scoring.ts` skips null factors |
 | An hour missing a core weather value | Hour dropped; a walk window will not span the gap | `merge.ts` drops it, `windows.ts` splits runs on wall-clock gaps |
-| `localStorage` unavailable (private mode) | Caching and ZIP memory silently off | try/catch wrappers in `geocode.ts` and `main.ts` |
+| `localStorage` unavailable (private mode) | Caching and ZIP memory silently off | try/catch wrappers in `geocode.ts`, `cache.ts`, and `main.ts` |
 
 ## Rendering model (no framework)
 
@@ -131,10 +136,13 @@ There is no virtual DOM and no state library. The model is:
   - *Transient UI state* in closures — e.g. the chart's focused-bar index and
     bar references live inside `renderChart`'s scope, shared by its event
     handlers.
-  - *Persistent state* in four localStorage keys: `ww:lastZip` (last
-    successful ZIP), `ww:geo:<zip>` (geocoding cache entries), `ww:recents`
-    (the recent-searches strip, a JSON `RecentLocation[]`), and
-    `ww:settings` (tuned scoring parameters, a JSON `ScoringParams`).
+  - *Persistent state* under six localStorage keys/prefixes: `ww:lastZip`
+    (last successful ZIP), `ww:geo:<zip>` (geocoding cache entries,
+    permanent — ZIP centroids don't move), `ww:wx:<lat,lon>` and
+    `ww:aqi:<lat,lon>` (forecast/AQI response caches, 1h TTL, pruned to 10
+    entries each — `src/api/cache.ts`), `ww:recents` (the recent-searches
+    strip, a JSON `RecentLocation[]`), and `ww:settings` (tuned scoring
+    parameters, a JSON `ScoringParams`).
   - *The last-fetch cache* — `lastSliced` in `main.ts`, the unscored
     72h-sliced hours of the last successful fetch, held in memory only so a
     settings change can re-score and repaint without refetching.
@@ -191,6 +199,10 @@ shape is selected.
 - `tests/api.test.ts` — offline *request-contract* tests: stub `fetch`,
   assert the exact query parameters. Losing `temperature_unit=fahrenheit`
   or `timezone=auto` would silently mis-score every hour; these pin it.
+  Also the response-caching behavior end to end through the fetchers:
+  repeat calls hit the cache, expiry refetches, stale fallback on failure.
+- `tests/cache.test.ts` — the TTL cache helper in isolation: hit/miss/
+  expiry rules, corrupt-entry handling, stale fallback windows, pruning.
 - `tests/live-api.test.ts` — opt-in integration against the real endpoints
   (`$env:LIVE_API='1'; npm test`), including a Hawaii case that would catch
   viewer-timezone contamination.

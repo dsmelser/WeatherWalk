@@ -198,7 +198,8 @@ Gives a fetch a deadline: after 10 s the request aborts and the promise
 rejects. The old way was a manual `AbortController` plus a `setTimeout` you
 had to remember to clear — this is the one-line replacement.
 
-Used in: all three files in `src/api/`.
+Used in: `src/api/geocode.ts`, `src/api/forecast.ts`, `src/api/airQuality.ts`
+(the fetching files — `src/api/cache.ts` touches no network).
 
 ### `Promise.allSettled` (ES2020)
 
@@ -239,7 +240,8 @@ Two details here: `catch` no longer needs a binding
 and the defensive wrapper is standard practice because private-browsing
 modes and storage-disabled contexts make **any** localStorage call throw.
 The app treats storage as a nice-to-have: caching and "remember my ZIP" just
-silently don't happen. Used in: `src/api/geocode.ts`, `src/main.ts`.
+silently don't happen. Used in: `src/api/geocode.ts`, `src/api/cache.ts`,
+`src/main.ts`.
 
 ---
 
