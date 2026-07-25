@@ -212,7 +212,7 @@ Like `Promise.all`, but it **never rejects** — it waits for every promise and
 reports each outcome as `{ status: 'fulfilled', value }` or
 `{ status: 'rejected', reason }`. That's exactly what the app needs: weather
 and air-quality fetches run in parallel, a weather failure is fatal, but an
-air-quality failure just degrades scoring to four factors. With `Promise.all`,
+air-quality failure just degrades scoring to five factors. With `Promise.all`,
 an AQI hiccup would have killed the whole forecast.
 
 Used in: `src/main.ts`.

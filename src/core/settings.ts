@@ -28,9 +28,21 @@ export type SettingSpec = {
   max: number
   step: number
 } & (
+  // The two bell groups are separate members (not `'temp' | 'wind'` in one):
+  // ruling a member out by `!==` checks only works when its discriminant is
+  // a single literal, and getParam/setParam's else branches rely on that.
   | { group: 'temp'; key: Exclude<keyof Bell, 'fn'> }
+  | { group: 'wind'; key: Exclude<keyof Bell, 'fn'> }
   | { group: 'dew' | 'aqi' | 'uv'; key: Exclude<keyof Drop, 'fn'> }
 )
+
+/** Which curve family a group belongs to — the question getParam/setParam/
+ * setFn here and the shape-select/preview code in src/ui/settings.ts all
+ * ask. A type predicate, so an `if (isBellGroup(g))` narrows `g` to the
+ * bell groups (and params[g] to Bell) with no casts. */
+export function isBellGroup(group: keyof ScoringParams): group is 'temp' | 'wind' {
+  return group === 'temp' || group === 'wind'
+}
 
 /** One selectable curve shape: value, control label, one-line description. */
 export interface FnOption<F extends string> {
@@ -39,7 +51,7 @@ export interface FnOption<F extends string> {
   blurb: string
 }
 
-/** The bell shapes for temperature, in display order (default first). */
+/** The bell shapes for temperature and wind, in display order (default first). */
 export const BELL_FNS: FnOption<BellFn>[] = [
   { fn: 'gauss', label: 'smooth bell', blurb: 'soft shoulders; never quite reaches zero' },
   { fn: 'cauchy', label: 'forgiving bell', blurb: 'same peak, much fatter tails far from ideal' },
@@ -58,6 +70,11 @@ export const SETTING_SPECS: SettingSpec[] = [
   { group: 'temp', key: 'optimal', label: 'ideal temperature', unit: '°F', min: 40, max: 90, step: 1 },
   { group: 'temp', key: 'coldSigma', label: 'cold tolerance', unit: '°F', min: 5, max: 40, step: 1 },
   { group: 'temp', key: 'hotSigma', label: 'heat tolerance', unit: '°F', min: 5, max: 40, step: 1 },
+  // Wind bell: the comfort peak is a light breeze (min 0 lets a user declare
+  // dead calm perfect); the two widths are the calm side / the windy side.
+  { group: 'wind', key: 'optimal', label: 'ideal breeze', unit: 'mph', min: 0, max: 15, step: 1 },
+  { group: 'wind', key: 'coldSigma', label: 'calm tolerance', unit: 'mph', min: 2, max: 25, step: 1 },
+  { group: 'wind', key: 'hotSigma', label: 'wind tolerance', unit: 'mph', min: 4, max: 30, step: 1 },
   // Drop-offs: the ~50%-comfort point (cliff's exact cut) and how gently
   // comfort declines around it (unused by cliff).
   { group: 'dew', key: 'midpoint', label: '50% comfort at', unit: '°F dew point', min: 50, max: 80, step: 1 },
@@ -71,31 +88,39 @@ export const SETTING_SPECS: SettingSpec[] = [
 /** Section titles for the panel, one per curve. */
 export const GROUP_LABELS: Record<keyof ScoringParams, string> = {
   temp: 'Temperature',
+  wind: 'Wind',
   dew: 'Humidity (dew point)',
   aqi: 'Air quality',
   uv: 'UV',
 }
 
-/** Read one spec'd value (the union narrows `key` to the right curve). */
+/** Read one spec'd value. The branches are textually identical on purpose:
+ * inside each, TypeScript has narrowed `spec` to one union member, so `key`
+ * is known to index the right curve type — remove the branch and it stops
+ * compiling. (Inline `===` on the discriminant, not isBellGroup: a type
+ * predicate narrows only its argument, never the object it was read from.) */
 export function getParam(params: ScoringParams, spec: SettingSpec): number {
-  return spec.group === 'temp' ? params.temp[spec.key] : params[spec.group][spec.key]
+  if (spec.group === 'temp' || spec.group === 'wind') return params[spec.group][spec.key]
+  return params[spec.group][spec.key]
 }
 
 /** A deep copy — parameter objects are never shared or mutated in place. */
 function clone(params: ScoringParams): ScoringParams {
   return {
     temp: { ...params.temp },
+    wind: { ...params.wind },
     dew: { ...params.dew },
     aqi: { ...params.aqi },
     uv: { ...params.uv },
   }
 }
 
-/** Return new params with one spec'd value replaced (clamped to its range). */
+/** Return new params with one spec'd value replaced (clamped to its range).
+ * Identical-looking branches for the same narrowing reason as getParam. */
 export function setParam(params: ScoringParams, spec: SettingSpec, value: number): ScoringParams {
   const next = clone(params)
   const v = clampToSpec(spec, value)
-  if (spec.group === 'temp') next.temp[spec.key] = v
+  if (spec.group === 'temp' || spec.group === 'wind') next[spec.group][spec.key] = v
   else next[spec.group][spec.key] = v
   return next
 }
@@ -113,16 +138,17 @@ function clampToSpec(spec: SettingSpec, value: number): number {
  */
 export function setFn(params: ScoringParams, group: keyof ScoringParams, fn: string): ScoringParams {
   const next = clone(params)
-  if (group === 'temp') {
-    if (BELL_FNS.some((o) => o.fn === fn)) next.temp.fn = fn as BellFn
+  if (isBellGroup(group)) {
+    if (BELL_FNS.some((o) => o.fn === fn)) next[group].fn = fn as BellFn
   } else if (DROP_FNS.some((o) => o.fn === fn)) {
     next[group].fn = fn as DropFn
   }
   return next
 }
 
-/** The group keys, in panel display order. */
-export const GROUPS = ['temp', 'dew', 'aqi', 'uv'] as const
+/** The group keys, in panel display order. Not compiler-checked against
+ * ScoringParams (a plain array) — tests/settings.test.ts pins the match. */
+export const GROUPS = ['temp', 'dew', 'wind', 'aqi', 'uv'] as const
 
 /** True when every tunable field (numbers AND shapes) is still default. */
 export function isDefaultParams(params: ScoringParams): boolean {

@@ -5,7 +5,7 @@ import { cachedFetch, isNullableNumberArray } from './cache'
  * Hourly US AQI on the same local-time hourly grid as the weather API.
  * The underlying CAMS model forecasts ~4-5 days, so the tail of the arrays
  * is null — merge handles that per-hour. A thrown error here is non-fatal:
- * the app degrades to 4-factor scoring (main.ts catches it via
+ * the app degrades to 5-factor scoring (main.ts catches it via
  * Promise.allSettled and shows a banner instead of failing the forecast).
  *
  * Fetch and caching pattern both mirror forecast.ts — same TTL, same

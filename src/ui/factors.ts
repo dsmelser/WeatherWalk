@@ -9,7 +9,7 @@ interface Row {
   factor: number | null
 }
 
-/** The five factors in display order, formatted for humans. */
+/** The six factors in display order, formatted for humans. */
 function rows(hour: ScoredHour): Row[] {
   return [
     { value: `${Math.round(hour.tempF)}°F`, label: FACTOR_LABELS.temp, factor: hour.factors.temp },
@@ -17,6 +17,13 @@ function rows(hour: ScoredHour): Row[] {
       value: `${Math.round(hour.dewPointF)}°F dew pt`,
       label: FACTOR_LABELS.dewPoint,
       factor: hour.factors.dewPoint,
+    },
+    {
+      // The mph shown is the value the multiplier was computed from — the
+      // worse of sustained wind and gusts (usually the gust).
+      value: `${Math.round(Math.max(hour.windMph, hour.gustMph))} mph`,
+      label: FACTOR_LABELS.wind,
+      factor: hour.factors.wind,
     },
     { value: `${Math.round(hour.precipProb)}%`, label: FACTOR_LABELS.precip, factor: hour.factors.precip },
     { value: `UV ${Math.round(hour.uvIndex)}`, label: FACTOR_LABELS.uv, factor: hour.factors.uv },

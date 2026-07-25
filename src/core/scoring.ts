@@ -6,16 +6,17 @@ import type { FactorScores, HourData, ScoredHour } from '../types'
  * factors compound. Two curve KINDS cover everything, each offering a small
  * family of user-selectable shapes (the `fn` field):
  *
- * - A bell around an optimum (temperature): comfort peaks at `optimal` and
- *   falls off with separate widths per side (asymmetric).
+ * - A bell around an optimum (temperature, wind): comfort peaks at `optimal`
+ *   and falls off with separate widths per side (asymmetric). Wind's twist:
+ *   its optimum is a low but NONZERO breeze, so dead calm sits just below 1.
  * - A drop-off (dew point, AQI, UV): comfort ≈ 1 at the harmless end,
  *   crosses 0.5 at `midpoint`, and `softness` sets how many units it takes
  *   to fall (smaller = steeper).
  *
  * Rain is the user's rule: the factor IS the probability of staying dry.
  * Exact zeros are reserved for hazards (EPA Hazardous AQI, NWS
- * frostbite/heat-danger temperatures) and certain rain — hazards apply no
- * matter which shape is selected.
+ * frostbite/heat-danger temperatures, NWS warning-level wind) and certain
+ * rain — hazards apply no matter which shape is selected.
  *
  * The curve parameters below are deliberately named, exported constants:
  * they get hand-tuned by feel, and the tests in tests/scoring.test.ts derive
@@ -27,13 +28,15 @@ export type BellFn = 'gauss' | 'cauchy' | 'tent'
 /** The drop-off shapes on offer. */
 export type DropFn = 'logistic' | 'ramp' | 'cliff'
 
-/** Parameters for the temperature bell curve. */
+/** Parameters for a comfort bell curve (temperature, wind). The sigma names
+ * come from temperature, the first bell; read them as the width below/above
+ * the optimum (for wind: the calm side / the windy side). */
 export interface Bell {
   fn: BellFn
   optimal: number
-  /** Width below the optimum — bigger tolerates cold better. */
+  /** Width below the optimum — bigger tolerates the low side better. */
   coldSigma: number
-  /** Width above the optimum — smaller makes heat bite faster. */
+  /** Width above the optimum — smaller makes the high side bite faster. */
   hotSigma: number
 }
 
@@ -54,6 +57,7 @@ export interface Drop {
  */
 export interface ScoringParams {
   temp: Bell
+  wind: Bell
   dew: Drop
   aqi: Drop
   uv: Drop
@@ -132,6 +136,16 @@ export const TEMP_COMFORT: Bell = { fn: 'gauss', optimal: 71, coldSigma: 22, hot
 export const TEMP_HAZARD_LOW = -10
 export const TEMP_HAZARD_HIGH = 105
 
+// A light ~4 mph breeze is the thermal-comfort sweet spot — dead calm reads
+// as stuffy, which is why the optimum is low but NOT zero. Comfort crosses
+// ~0.5 near the pedestrian-comfort walking ceiling (Lawson 2001, ~18 mph),
+// ~0.22 at Beaufort 6 "umbrellas fail" (25), ~0.07 at Beaufort 7 "hard to
+// walk against" (32). The hazard is the NWS High Wind Warning threshold
+// (sustained 40 mph) — applied to gusts too, since the score judges the
+// worse of sustained wind and gusts (see scoreHour).
+export const WIND_COMFORT: Bell = { fn: 'gauss', optimal: 4, coldSigma: 9, hotSigma: 12 }
+export const WIND_HAZARD = 40
+
 // Dew point midpoint sits just past the NWS ~65°F "oppressive" boundary.
 export const DEW_COMFORT: Drop = { fn: 'logistic', midpoint: 68, softness: 4.5 }
 
@@ -145,6 +159,7 @@ export const UV_COMFORT: Drop = { fn: 'logistic', midpoint: 7, softness: 2.5 }
 /** The hand-tuned constants above, bundled as the default parameter set. */
 export const DEFAULT_PARAMS: ScoringParams = {
   temp: TEMP_COMFORT,
+  wind: WIND_COMFORT,
   dew: DEW_COMFORT,
   aqi: AQI_COMFORT,
   uv: UV_COMFORT,
@@ -154,6 +169,14 @@ export const DEFAULT_PARAMS: ScoringParams = {
 export function tempFactor(tempF: number, b: Bell = TEMP_COMFORT): number {
   if (tempF <= TEMP_HAZARD_LOW || tempF >= TEMP_HAZARD_HIGH) return 0
   return bell(b, tempF)
+}
+
+/** Wind comfort: an asymmetric bell peaking at a light breeze, with
+ * warning-level winds forced to 0. Callers pass the worse of sustained
+ * wind and gusts — both fail for the same reason. */
+export function windFactor(windMph: number, b: Bell = WIND_COMFORT): number {
+  if (windMph >= WIND_HAZARD) return 0
+  return bell(b, windMph)
 }
 
 /** Humidity comfort, judged by dew point (°F). */
@@ -188,7 +211,7 @@ export function displayScore(product: number): number {
 }
 
 /**
- * Scores one hour: computes all five factors, multiplies them together.
+ * Scores one hour: computes all six factors, multiplies them together.
  * `p` defaults to the hand-tuned constants; the Advanced-settings panel
  * passes the user's own. (Don't `.map(scoreHour)` — the map index would
  * land in the params slot; use `.map((h) => scoreHour(h, params))`.)
@@ -202,11 +225,13 @@ export function scoreHour(h: HourData, p: ScoringParams = DEFAULT_PARAMS): Score
     precip: precipFactor(h.precipProb),
     temp: tempFactor(h.tempF, p.temp),
     uv: uvFactor(h.uvIndex, p.uv),
+    // Sustained wind or gusts, whichever is worse — one curve, one hazard.
+    wind: windFactor(Math.max(h.windMph, h.gustMph), p.wind),
   }
   // Multiply only the factors that exist: AQI joins when the forecast covers
-  // this hour, otherwise the hour is scored on the other four (a missing
+  // this hour, otherwise the hour is scored on the other five (a missing
   // factor must not read as ×0, which would zero every uncovered hour).
-  const present = [factors.dewPoint, factors.precip, factors.temp, factors.uv]
+  const present = [factors.dewPoint, factors.precip, factors.temp, factors.uv, factors.wind]
   if (factors.aqi != null) present.push(factors.aqi)
   // reduce with (a, b) => a * b folds the array into one product; the `1` is
   // the starting value (the multiplicative identity).
@@ -244,4 +269,5 @@ export const FACTOR_LABELS: Record<keyof FactorScores, string> = {
   precip: 'rain chance',
   temp: 'temperature',
   uv: 'UV',
+  wind: 'wind',
 }

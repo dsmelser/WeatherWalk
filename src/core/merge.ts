@@ -6,7 +6,7 @@ import type { AirQualitySeries, HourData, WeatherSeries } from '../types'
  * timestamp strings (both APIs return the same midnight-aligned hourly grid
  * with timezone=auto). The join is weather-driven: hours missing from the
  * air-quality series, or with a null AQI (the model's ~4-5 day horizon ends
- * before the requested days), get usAqi: null and are scored on 4 factors.
+ * before the requested days), get usAqi: null and are scored on 5 factors.
  * Hours missing any core weather value are dropped entirely.
  */
 export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null): HourData[] {
@@ -28,17 +28,22 @@ export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null
     const dewPointF = weather.dewPointF[i]
     const precipProb = weather.precipProb[i]
     const uvIndex = weather.uvIndex[i]
+    const windMph = weather.windMph[i]
+    const gustMph = weather.gustMph[i]
     // An hour missing ANY core weather value can't be scored honestly, so it
     // is dropped — downstream, sliceNext72h still bounds by wall clock and
     // walkWindows refuses to span the gap, so a dropped hour never causes a
     // silent stretch or an unearned window.
     if (tempF == null || dewPointF == null || precipProb == null || uvIndex == null) continue
+    if (windMph == null || gustMph == null) continue
     out.push({
       ts: weather.time[i],
       tempF,
       dewPointF,
       precipProb,
       uvIndex,
+      windMph,
+      gustMph,
       // Timestamp not in the AQI series at all → same null as a null entry.
       usAqi: aqiByTs.get(weather.time[i]) ?? null,
       // The API says 1/0; the rest of the app wants a real boolean.

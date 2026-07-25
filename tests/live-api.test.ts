@@ -40,6 +40,12 @@ describe.runIf(process.env.LIVE_API === '1')('live API pipeline', () => {
       expect(h.product).toBeLessThanOrEqual(1)
       expect(h.display).toBeGreaterThanOrEqual(0)
       expect(h.display).toBeLessThanOrEqual(100)
+      // The real API honors wind_speed_unit=mph end to end — merged hours
+      // carry finite, non-negative wind and gust values.
+      expect(Number.isFinite(h.windMph)).toBe(true)
+      expect(h.windMph).toBeGreaterThanOrEqual(0)
+      expect(Number.isFinite(h.gustMph)).toBe(true)
+      expect(h.gustMph).toBeGreaterThanOrEqual(0)
     }
     // AQI model horizon is ~4-5 days, so at least the first day must have it.
     expect(hours.slice(0, 24).every((h) => h.usAqi !== null)).toBe(true)

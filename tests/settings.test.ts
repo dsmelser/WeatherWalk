@@ -7,6 +7,7 @@ import {
 } from '../src/core/scoring'
 import type { ScoringParams } from '../src/core/scoring'
 import {
+  GROUPS,
   SETTING_SPECS,
   defaultParams,
   getParam,
@@ -25,6 +26,7 @@ import type { HourData } from '../src/types'
 
 const tempOptimal = SETTING_SPECS.find((s) => s.group === 'temp' && s.key === 'optimal')!
 const dewMidpoint = SETTING_SPECS.find((s) => s.group === 'dew' && s.key === 'midpoint')!
+const windOptimal = SETTING_SPECS.find((s) => s.group === 'wind' && s.key === 'optimal')!
 
 /** A pleasant hour to score under different parameter sets. */
 const hour: HourData = {
@@ -33,9 +35,19 @@ const hour: HourData = {
   dewPointF: 50,
   precipProb: 0,
   uvIndex: 2,
+  windMph: DEFAULT_PARAMS.wind.optimal,
+  gustMph: DEFAULT_PARAMS.wind.optimal,
   usAqi: 25,
   isDay: true,
 }
+
+// GROUPS is a plain `as const` array — nothing at compile time forces it to
+// stay in sync with ScoringParams. This is the guard: forget a group and no
+// panel section, no shape parsing, and no isDefaultParams coverage exist
+// for it, all silently.
+it('GROUPS lists every ScoringParams group exactly once', () => {
+  expect([...GROUPS].sort()).toEqual(Object.keys(DEFAULT_PARAMS).sort())
+})
 
 describe('setParam / getParam', () => {
   it('round-trips a value through its spec', () => {
@@ -47,6 +59,9 @@ describe('setParam / getParam', () => {
   it('clamps to the spec range', () => {
     expect(setParam(defaultParams(), tempOptimal, 500).temp.optimal).toBe(tempOptimal.max)
     expect(setParam(defaultParams(), tempOptimal, -500).temp.optimal).toBe(tempOptimal.min)
+    // The second bell group goes through the same narrowing paths.
+    expect(setParam(defaultParams(), windOptimal, 999).wind.optimal).toBe(windOptimal.max)
+    expect(setParam(defaultParams(), windOptimal, -1).wind.optimal).toBe(windOptimal.min)
   })
 
   it('does not mutate the input params (or the shared defaults)', () => {
@@ -157,6 +172,13 @@ describe('scoring with custom params', () => {
     expect(scoreHour(hour, aqiShift).factors.aqi!).toBeLessThan(base.factors.aqi!)
     const uvShift = { ...defaultParams(), uv: { ...DEFAULT_PARAMS.uv, midpoint: 2 } }
     expect(scoreHour(hour, uvShift).factors.uv).toBeLessThan(base.factors.uv)
+    // Wind: the hour sits at the default optimum (factor 1); move the
+    // optimum far away and the same breeze must score below 1.
+    const windShift = {
+      ...defaultParams(),
+      wind: { ...DEFAULT_PARAMS.wind, optimal: DEFAULT_PARAMS.wind.optimal + 10 },
+    }
+    expect(scoreHour(hour, windShift).factors.wind).toBeLessThan(base.factors.wind)
   })
 
   it('threads the curve SHAPE through scoreHour too', () => {
@@ -182,6 +204,13 @@ describe('setFn / parsing shapes', () => {
     // 'tent' is a bell shape — a drop-off group must ignore it.
     expect(setFn(defaultParams(), 'dew', 'tent').dew.fn).toBe('logistic')
     expect(setFn(defaultParams(), 'uv', 'cliff').uv.fn).toBe('cliff')
+    // Wind is a bell group: bell shapes stick, drop-off shapes are ignored.
+    expect(setFn(defaultParams(), 'wind', 'tent').wind.fn).toBe('tent')
+    expect(setFn(defaultParams(), 'wind', 'logistic').wind.fn).toBe('gauss')
+  })
+
+  it('a wind shape change alone flips isDefaultParams', () => {
+    expect(isDefaultParams(setFn(defaultParams(), 'wind', 'cauchy'))).toBe(false)
   })
 
   it('a shape change alone flips isDefaultParams', () => {
@@ -205,8 +234,22 @@ describe('setFn / parsing shapes', () => {
     expect(parsed.temp.fn).toBe('gauss')
   })
 
+  it('settings stored before wind existed keep their numbers and get default wind', () => {
+    // What every tuned-up returning visitor has stored the day this ships.
+    const preWind = JSON.stringify({ temp: { optimal: 65 }, uv: { midpoint: 6 } })
+    const parsed = parseSettings(preWind)
+    expect(parsed.temp.optimal).toBe(65)
+    expect(parsed.uv.midpoint).toBe(6)
+    expect(parsed.wind).toEqual(DEFAULT_PARAMS.wind)
+  })
+
   it('round-trips a shape-and-number edit', () => {
     const edited = setFn(setParam(defaultParams(), tempOptimal, 62), 'dew', 'ramp')
+    expect(parseSettings(JSON.stringify(edited))).toEqual(edited)
+  })
+
+  it('round-trips a wind edit', () => {
+    const edited = setFn(setParam(defaultParams(), windOptimal, 7), 'wind', 'tent')
     expect(parseSettings(JSON.stringify(edited))).toEqual(edited)
   })
 })
