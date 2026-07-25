@@ -1,4 +1,5 @@
 import { FACTOR_LABELS } from '../core/scoring'
+import { scorePlateColor, scoreTextColor } from './color'
 import type { ScoredHour } from '../types'
 
 /** One display row: the measured value, its label, and its [0,1] factor. */
@@ -29,6 +30,17 @@ function rows(hour: ScoredHour): Row[] {
 }
 
 /**
+ * Score-code one row like the chart bars: a soft plate of the factor's scale
+ * color behind the whole row, value and multiplier text in a readable blend
+ * of the same hue. The label keeps its neutral color via CSS.
+ */
+function paint(row: HTMLElement, value: HTMLElement, mult: HTMLElement, factor: number): void {
+  row.style.background = scorePlateColor(factor)
+  value.style.color = scoreTextColor(factor)
+  mult.style.color = scoreTextColor(factor)
+}
+
+/**
  * The per-factor breakdown shared by the chart tooltip and the windows list.
  * Value leads (strong), label follows, and the ×multiplier shows how much the
  * factor contributes to the multiplicative score. All data goes in via
@@ -54,6 +66,9 @@ export function factorRows(hour: ScoredHour): HTMLDivElement {
     const mult = document.createElement('span')
     mult.className = 'factor-mult'
     mult.textContent = r.factor == null ? 'not included' : `×${r.factor.toFixed(2)}`
+    // Absent factors (AQI beyond its forecast horizon) stay neutral: a color
+    // would falsely claim the row contributed to the score.
+    if (r.factor != null) paint(row, value, mult, r.factor)
     // [modern] append() takes multiple nodes at once (unlike appendChild).
     row.append(value, label, mult)
     box.append(row)
@@ -71,6 +86,8 @@ export function factorRows(hour: ScoredHour): HTMLDivElement {
   const mult = document.createElement('span')
   mult.className = 'factor-mult'
   mult.textContent = `= ${hour.product.toFixed(2)}`
+  // The product drives this plate, so the total row matches the hour's bar.
+  paint(total, value, mult, hour.product)
   total.append(value, label, mult)
   box.append(total)
   return box

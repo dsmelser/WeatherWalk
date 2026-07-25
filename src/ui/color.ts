@@ -40,3 +40,23 @@ export function scoreColor(product: number): string {
   // See docs/MODERN-JS-PRIMER.md.
   return `color-mix(in oklch, var(--scale-${i}) ${pct}%, var(--scale-${i + 1}))`
 }
+
+/**
+ * scoreColor blended toward the theme's text color, for score-coded TEXT.
+ * The pure scale colors are tuned for bar fills; as small text the gold end
+ * is ~2:1 contrast on a light page. Mixing in var(--text-primary) darkens
+ * the hue on light themes and lightens it on dark ones — same expression,
+ * both themes readable, hue still recognizable.
+ */
+export function scoreTextColor(product: number): string {
+  return `color-mix(in oklch, ${scoreColor(product)} 70%, var(--text-primary))`
+}
+
+/**
+ * scoreColor faded to a soft tint, for score-coded BACKGROUNDS (the plate
+ * behind a factor row). Mixing with transparent keeps whatever surface is
+ * underneath showing through, so the same tint works on any card or popup.
+ */
+export function scorePlateColor(product: number): string {
+  return `color-mix(in oklch, ${scoreColor(product)} 16%, transparent)`
+}

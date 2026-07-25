@@ -586,6 +586,10 @@ body {
   gap: 8px;
   font-size: 13px;
   align-items: baseline;
+  /* Breathing room for the score-tinted plate (row background set inline
+     from JS). On every row — plated or not — so columns stay aligned. */
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 .factor-value {
   font-weight: 600;
