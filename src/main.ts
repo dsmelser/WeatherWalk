@@ -62,7 +62,7 @@ const tooltipEl = el('tooltip')
 interface ViewData {
   geo: GeoResult
   timezone: string
-  /** The whole AQI fetch failed — scores use four factors everywhere. */
+  /** The whole AQI fetch failed — scores use five factors everywhere. */
   aqiMissing: boolean
   /** AQI arrived but ends before our 72h — the tail is scored without it. */
   aqiPartial: boolean
@@ -260,7 +260,7 @@ function render(view: ViewData): void {
   placeEl.textContent = `${view.geo.place} · times local to ${view.timezone.replace(/_/g, ' ')}`
   placeEl.hidden = false
   if (view.aqiMissing) {
-    showBanner('Air quality data is unavailable right now — scores use the other four factors.')
+    showBanner('Air quality data is unavailable right now — scores use the other five factors.')
   } else if (view.aqiPartial) {
     showBanner('The air quality forecast ends early — the last hours are scored without AQI.')
   }
@@ -294,7 +294,7 @@ async function run(zip: string): Promise<void> {
       throw new Error('The weather service could not be reached — please retry in a moment.')
     }
     const weather = weatherRes.value
-    // No AQI → keep going with four factors (render shows a banner).
+    // No AQI → keep going with five factors (render shows a banner).
     const air = airRes.status === 'fulfilled' ? airRes.value : null
     const merged = mergeSeries(weather, air)
     // "Now" in the ZIP's own clock — see src/core/time.ts for why.

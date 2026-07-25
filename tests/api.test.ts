@@ -58,6 +58,8 @@ const forecastBody = {
     dew_point_2m: [50],
     precipitation_probability: [0],
     uv_index: [1],
+    wind_speed_10m: [5],
+    wind_gusts_10m: [9],
     is_day: [1],
   },
   utc_offset_seconds: -14400,
@@ -67,11 +69,14 @@ const forecastBody = {
 const airBody = { hourly: { time: ['2026-07-17T00:00'], us_aqi: [42] } }
 
 describe('fetchForecast request contract', () => {
-  it('requests Fahrenheit, 4 days, auto timezone, and all five hourly variables', async () => {
+  it('requests Fahrenheit, mph, 4 days, auto timezone, and all seven hourly variables', async () => {
     const cap = captureFetch(forecastBody)
     await fetchForecast(39.29, -76.61)
     const params = cap.url().searchParams
     expect(params.get('temperature_unit')).toBe('fahrenheit')
+    // The API's wind default is km/h — losing this param would judge every
+    // wind ~1.6× too harsh.
+    expect(params.get('wind_speed_unit')).toBe('mph')
     expect(params.get('forecast_days')).toBe('4')
     expect(params.get('timezone')).toBe('auto')
     expect(params.get('hourly')!.split(',')).toEqual(
@@ -80,6 +85,8 @@ describe('fetchForecast request contract', () => {
         'dew_point_2m',
         'precipitation_probability',
         'uv_index',
+        'wind_speed_10m',
+        'wind_gusts_10m',
         'is_day',
       ]),
     )
@@ -90,6 +97,8 @@ describe('fetchForecast request contract', () => {
     const w = await fetchForecast(39.29, -76.61)
     expect(w.tempF).toEqual([70])
     expect(w.dewPointF).toEqual([50])
+    expect(w.windMph).toEqual([5])
+    expect(w.gustMph).toEqual([9])
     expect(w.utcOffsetSeconds).toBe(-14400)
     expect(w.timezone).toBe('America/New_York')
   })
@@ -127,6 +136,8 @@ describe('response caching', () => {
       dewPointF: [40],
       precipProb: [10],
       uvIndex: [2],
+      windMph: [3],
+      gustMph: [6],
       isDay: [1],
       utcOffsetSeconds: -14400,
       timezone: 'America/New_York',
@@ -180,7 +191,7 @@ describe('response caching', () => {
     await expect(fetchForecast(39.29, -76.61)).rejects.toThrow(/network down/)
   })
 
-  it('treats a cached entry missing one of the five arrays as a miss', async () => {
+  it('treats a cached entry missing one of the seven arrays as a miss', async () => {
     // A partial shape (say, written by a different app version) would
     // crash mergeSeries if served — the validator must reject it.
     const partial = {
@@ -188,6 +199,8 @@ describe('response caching', () => {
       tempF: [55],
       precipProb: [10],
       uvIndex: [2],
+      windMph: [3],
+      gustMph: [6],
       isDay: [1],
       utcOffsetSeconds: -14400,
       timezone: 'America/New_York',
@@ -197,6 +210,47 @@ describe('response caching', () => {
     const w = await fetchForecast(39.29, -76.61)
     expect(cap.calls()).toBe(1)
     expect(w.dewPointF).toEqual([50]) // the fresh response, not the partial entry
+  })
+
+  it('treats a pre-wind cached entry (no wind arrays) as a miss and refetches', async () => {
+    // Exactly what every returning visitor's cache looks like the first
+    // load after this feature ships — must be a one-time refetch.
+    const preWind = {
+      time: ['2026-07-17T00:00'],
+      tempF: [55],
+      dewPointF: [40],
+      precipProb: [10],
+      uvIndex: [2],
+      isDay: [1],
+      utcOffsetSeconds: -14400,
+      timezone: 'America/New_York',
+    }
+    localStorage.setItem(wxKey, JSON.stringify({ fetchedAt: Date.now(), data: preWind }))
+    const cap = captureFetch(forecastBody)
+    const w = await fetchForecast(39.29, -76.61)
+    expect(cap.calls()).toBe(1)
+    expect(w.windMph).toEqual([5]) // the fresh response
+  })
+
+  it('never serves a pre-wind cached entry as the stale fallback', async () => {
+    // With the network also down, the legacy entry must NOT paper over the
+    // failure — an honest retryable error beats a series merge would crash on.
+    const preWind = {
+      time: ['2026-07-17T00:00'],
+      tempF: [55],
+      dewPointF: [40],
+      precipProb: [10],
+      uvIndex: [2],
+      isDay: [1],
+      utcOffsetSeconds: -14400,
+      timezone: 'America/New_York',
+    }
+    localStorage.setItem(
+      wxKey,
+      JSON.stringify({ fetchedAt: Date.now() - 2 * HOUR, data: preWind }),
+    )
+    failFetch()
+    await expect(fetchForecast(39.29, -76.61)).rejects.toThrow(/network down/)
   })
 
   // The stale-fallback wiring must hold for BOTH fetchers — losing

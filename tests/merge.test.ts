@@ -26,6 +26,8 @@ function weather(time: string[], overrides: Partial<WeatherSeries> = {}): Weathe
     dewPointF: Array(n).fill(50),
     precipProb: Array(n).fill(10),
     uvIndex: Array(n).fill(2),
+    windMph: Array(n).fill(5),
+    gustMph: Array(n).fill(9),
     isDay: Array(n).fill(1),
     utcOffsetSeconds: -14400,
     timezone: 'America/New_York',
@@ -41,6 +43,8 @@ describe('mergeSeries', () => {
     expect(merged).toHaveLength(5)
     expect(merged.map((h) => h.usAqi)).toEqual([40, 41, 42, 43, 44])
     expect(merged[0].ts).toBe('2026-07-17T00:00')
+    expect(merged[0].windMph).toBe(5)
+    expect(merged[0].gustMph).toBe(9)
   })
 
   it('null AQI tail becomes usAqi: null without dropping hours', () => {
@@ -69,6 +73,14 @@ describe('mergeSeries', () => {
     const merged = mergeSeries(w, null)
     expect(merged).toHaveLength(2)
     expect(merged.map((h) => h.ts)).toEqual([time[0], time[2]])
+  })
+
+  it('drops hours with a hole in either wind array', () => {
+    const time = hourly('2026-07-17T00:00', 3)
+    const noWind = mergeSeries(weather(time, { windMph: [5, null, 5] }), null)
+    expect(noWind.map((h) => h.ts)).toEqual([time[0], time[2]])
+    const noGust = mergeSeries(weather(time, { gustMph: [9, 9, null] }), null)
+    expect(noGust.map((h) => h.ts)).toEqual([time[0], time[1]])
   })
 
   it('translates isDay to a boolean', () => {

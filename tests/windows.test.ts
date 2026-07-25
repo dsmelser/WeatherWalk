@@ -15,9 +15,11 @@ function stub(products: number[]): ScoredHour[] {
     dewPointF: 50,
     precipProb: 0,
     uvIndex: 1,
+    windMph: 4,
+    gustMph: 6,
     usAqi: 25,
     isDay: true,
-    factors: { aqi: 1, dewPoint: 1, precip: 1, temp: 1, uv: 1 },
+    factors: { aqi: 1, dewPoint: 1, precip: 1, temp: 1, uv: 1, wind: 1 },
     product,
     display: Math.round(product * 100),
   }))

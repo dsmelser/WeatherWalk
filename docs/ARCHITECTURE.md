@@ -24,7 +24,8 @@ Everything the app does is one straight line, orchestrated by `run()` in
         ▼
   Promise.allSettled ── in parallel ──────────────┐
   │ fetchForecast()      src/api/forecast.ts      │ fetchAirQuality()   src/api/airQuality.ts
-  │ hourly temp/dew/rain/UV/is_day, 4 days        │ hourly US AQI, 5 days
+  │ hourly temp/dew/rain/UV/wind/gusts/is_day,    │ hourly US AQI, 5 days
+  │ 4 days                                        │
   │ 1h TTL cache at ww:wx:<lat,lon>               │ 1h TTL cache at ww:aqi:<lat,lon>
   │ (failure = fatal)                             │ (failure = banner, keep going)
   └──────────────┬───────────────────────────────┘
@@ -44,7 +45,7 @@ Everything the app does is one straight line, orchestrated by `run()` in
   render()                             src/main.ts
   place label + AQI banners, then repaintScores():
   ├─ scoreHour() per hour             src/core/scoring.ts
-  │    five comfort factors in [0,1], multiplied → product, ×100 → display
+  │    six comfort factors in [0,1], multiplied → product, ×100 → display
   ├─ walkWindows()                    src/core/windows.ts
   │    chronological maximal runs of hours with product ≥ 0.5
   ├─ renderHero()      src/ui/hero.ts         "Next good time to walk"
@@ -77,10 +78,11 @@ All defined in `src/types.ts`:
    `time: string[]` plus one value array per variable, index-aligned. Values
    are `(number | null)[]` because the AQI model's horizon (~4–5 days) ends
    before the requested range, leaving a null tail.
-2. **`HourData`** — one merged hour: timestamp plus the five inputs
-   (`tempF`, `dewPointF`, `precipProb`, `uvIndex`, `usAqi`) and `isDay`.
-   `usAqi` stays nullable; everything else is guaranteed present (hours
-   missing a core weather value are dropped in the merge).
+2. **`HourData`** — one merged hour: timestamp plus the seven inputs
+   (`tempF`, `dewPointF`, `precipProb`, `uvIndex`, `windMph`, `gustMph`,
+   `usAqi`) and `isDay`. `usAqi` stays nullable; everything else is
+   guaranteed present (hours missing a core weather value are dropped in
+   the merge).
 3. **`ScoredHour`** — `HourData` plus `factors` (each factor's [0,1]
    sub-score), their `product`, and `display` (= round(product × 100), what
    the UI shows).
@@ -119,7 +121,7 @@ Consequences you'll see everywhere:
 | ZIP not in Zippopotam's database (404) | "ZIP wasn't found" error, **no** retry button | `ZipNotFoundError` thrown in `geocode.ts`, caught in `main.ts` |
 | Geocoding services unreachable | Retryable error ("check your connection") | `geocode.ts` — a fuzzy-search miss is *not* proof the ZIP doesn't exist, so only Zippopotam's 404 is authoritative |
 | Weather fetch fails | A cached forecast ≤6h old is served silently instead; with none, fatal: error + Retry button | `cache.ts` stale fallback, then `main.ts` — nothing to show without weather |
-| AQI fetch fails | Same stale fallback first; with none, non-fatal: dismissible banner, scores use 4 factors | `cache.ts`, then `main.ts` (`Promise.allSettled` keeps the weather result) |
+| AQI fetch fails | Same stale fallback first; with none, non-fatal: dismissible banner, scores use 5 factors | `cache.ts`, then `main.ts` (`Promise.allSettled` keeps the weather result) |
 | AQI forecast ends early (null tail) | Non-fatal: banner, affected hours scored without AQI | `merge.ts` sets `usAqi: null` per hour; `scoring.ts` skips null factors |
 | An hour missing a core weather value | Hour dropped; a walk window will not span the gap | `merge.ts` drops it, `windows.ts` splits runs on wall-clock gaps |
 | `localStorage` unavailable (private mode) | Caching and ZIP memory silently off | try/catch wrappers in `geocode.ts`, `cache.ts`, and `main.ts` |
@@ -160,16 +162,20 @@ native `<details>/<summary>`.
 ## Scoring model in one paragraph
 
 Each factor maps to a "percent comfort" in [0,1] through a selectable curve
-(`src/core/scoring.ts`): temperature through an asymmetric bell — Gaussian
-by default, with Cauchy (fat-tailed) and tent (linear) variants — wider on
-the cold side (clothing fixes cold, nothing fixes heat); dew point / AQI /
-UV through drop-offs — a normalized logistic by default, with ramp (linear)
-and cliff (binary cutoff) variants; and rain is simply the probability of
-staying dry (1 − p/100). The hour's score is the plain
+(`src/core/scoring.ts`): temperature and wind through asymmetric bells —
+Gaussian by default, with Cauchy (fat-tailed) and tent (linear) variants.
+Temperature's bell is wider on the cold side (clothing fixes cold, nothing
+fixes heat); wind's peaks at a light ~4 mph breeze — low but deliberately
+nonzero, since dead calm reads as stuffy — and is judged on the worse of
+sustained wind and gusts. Dew point / AQI / UV go through drop-offs — a
+normalized logistic by default, with ramp (linear) and cliff (binary
+cutoff) variants; and rain is simply the probability of staying dry
+(1 − p/100). The hour's score is the plain
 **product** of the factors, so one terrible factor vetoes the hour while
 several mild imperfections only dent it — and the ×multipliers shown in the
 tooltip literally multiply to the displayed score. Hazards (AQI ≥ 301,
-temperature ≤ −10 °F or ≥ 105 °F, certain rain) force an exact 0. The curve
+temperature ≤ −10 °F or ≥ 105 °F, wind or gusts ≥ 40 mph, certain rain)
+force an exact 0. The curve
 parameters are named constants at the top of `scoring.ts`, tuned by hand;
 the tests derive their expectations from the constants so tuning doesn't
 break them. Users can override them too: the collapsed "Advanced settings"
@@ -197,8 +203,9 @@ shape is selected.
   with clamping, safe parsing/merging of stored JSON, and that custom
   parameters change what `scoreHour` computes.
 - `tests/api.test.ts` — offline *request-contract* tests: stub `fetch`,
-  assert the exact query parameters. Losing `temperature_unit=fahrenheit`
-  or `timezone=auto` would silently mis-score every hour; these pin it.
+  assert the exact query parameters. Losing `temperature_unit=fahrenheit`,
+  `wind_speed_unit=mph`, or `timezone=auto` would silently mis-score every
+  hour; these pin it.
   Also the response-caching behavior end to end through the fetchers:
   repeat calls hit the cache, expiry refetches, stale fallback on failure.
 - `tests/cache.test.ts` — the TTL cache helper in isolation: hit/miss/

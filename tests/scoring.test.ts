@@ -4,6 +4,8 @@ import {
   DEW_COMFORT,
   TEMP_COMFORT,
   UV_COMFORT,
+  WIND_COMFORT,
+  WIND_HAZARD,
   aqiFactor,
   dewFactor,
   displayScore,
@@ -11,6 +13,7 @@ import {
   scoreHour,
   tempFactor,
   uvFactor,
+  windFactor,
 } from '../src/core/scoring'
 import type { HourData } from '../src/types'
 
@@ -30,6 +33,10 @@ function hour(overrides: Partial<HourData>): HourData {
     dewPointF: 45,
     precipProb: 0,
     uvIndex: 0,
+    // Both at the wind optimum → factor exactly ×1.0, so the calibration
+    // expectations below are untouched by the wind factor's existence.
+    windMph: WIND_COMFORT.optimal,
+    gustMph: WIND_COMFORT.optimal,
     usAqi: 25,
     isDay: true,
     ...overrides,
@@ -71,6 +78,50 @@ describe('tempFactor (asymmetric bell)', () => {
     expect(tempFactor(-25)).toBe(0)
     expect(tempFactor(105)).toBe(0)
     expect(tempFactor(115)).toBe(0)
+  })
+})
+
+describe('windFactor (asymmetric bell, low-but-nonzero optimum)', () => {
+  it('peaks at exactly 1.0 at a light breeze, not at dead calm', () => {
+    // The defining requirement: the optimum is a LOW but NONZERO speed.
+    expect(WIND_COMFORT.optimal).toBeGreaterThan(0)
+    expect(windFactor(WIND_COMFORT.optimal)).toBe(1)
+  })
+
+  it('dead calm scores slightly below 1 (still air reads as stuffy)', () => {
+    // Derived from the constants: the gauss bell evaluated at 0 mph.
+    const z = WIND_COMFORT.optimal / WIND_COMFORT.coldSigma
+    expect(windFactor(0)).toBeCloseTo(Math.exp(-0.5 * z * z), 5)
+    expect(windFactor(0)).toBeLessThan(1)
+    expect(windFactor(0)).toBeGreaterThan(0.8)
+  })
+
+  it('every shape keeps dead calm below the peak', () => {
+    for (const fn of ['gauss', 'cauchy', 'tent'] as const) {
+      expect(windFactor(0, { ...WIND_COMFORT, fn })).toBeLessThan(1)
+    }
+  })
+
+  it('comfort is exp(-1/2) one width above the optimum', () => {
+    const oneOut = WIND_COMFORT.optimal + WIND_COMFORT.hotSigma
+    expect(windFactor(oneOut)).toBeCloseTo(Math.exp(-0.5), 5)
+  })
+
+  it('rises toward the breeze optimum, then falls as wind strengthens', () => {
+    expect(windFactor(0)).toBeLessThan(windFactor(WIND_COMFORT.optimal / 2))
+    // Anchors from the research: breezy 8 is fine, the walking-comfort
+    // ceiling ~18 is half, umbrella-flipping 25 and hard-walking 32 sink.
+    expect(windFactor(8)).toBeGreaterThan(windFactor(18))
+    expect(windFactor(18)).toBeGreaterThan(windFactor(25))
+    expect(windFactor(25)).toBeGreaterThan(windFactor(32))
+  })
+
+  it('warning-level wind is an exact zero, no matter the shape', () => {
+    expect(windFactor(WIND_HAZARD)).toBe(0)
+    expect(windFactor(WIND_HAZARD + 12)).toBe(0)
+    for (const fn of ['gauss', 'cauchy', 'tent'] as const) {
+      expect(windFactor(WIND_HAZARD + 5, { ...WIND_COMFORT, fn })).toBe(0)
+    }
   })
 })
 
@@ -242,9 +293,27 @@ describe('scoreHour', () => {
     expect(scoreHour(hour({ usAqi: 350 })).product).toBe(0)
     expect(scoreHour(hour({ precipProb: 100 })).product).toBe(0)
     expect(scoreHour(hour({ tempF: 106 })).product).toBe(0)
+    // Wind fails via EITHER measure — sustained alone or a gust alone.
+    expect(scoreHour(hour({ windMph: WIND_HAZARD + 5 })).product).toBe(0)
+    expect(scoreHour(hour({ gustMph: WIND_HAZARD + 5 })).product).toBe(0)
   })
 
-  it('null AQI degrades to 4 factors instead of dying', () => {
+  it('scores the worse of sustained wind and gusts', () => {
+    // A gust binds even when the sustained wind is pleasant...
+    const gusty = scoreHour(hour({ windMph: 5, gustMph: 20 }))
+    expect(gusty.factors.wind).toBeCloseTo(windFactor(20), 10)
+    // ...and (hypothetically) vice versa — max(), not "always the gust".
+    const sustained = scoreHour(hour({ windMph: 20, gustMph: 5 }))
+    expect(sustained.factors.wind).toBeCloseTo(windFactor(20), 10)
+  })
+
+  it('a windy hour scores below an otherwise-identical calm one', () => {
+    const calm = scoreHour(hour({}))
+    const windy = scoreHour(hour({ windMph: 18, gustMph: 24 }))
+    expect(windy.product).toBeLessThan(calm.product)
+  })
+
+  it('null AQI degrades to 5 factors instead of dying', () => {
     const s = scoreHour(hour({ usAqi: null }))
     expect(s.factors.aqi).toBeNull()
     expect(s.product).toBeGreaterThan(0.95)
@@ -258,10 +327,18 @@ describe('scoreHour', () => {
   })
 
   it('the displayed score equals the product of the displayed multipliers', () => {
-    // The exact check a user can do against the tooltip.
-    const s = scoreHour(hour({ tempF: 83, dewPointF: 63, precipProb: 7, uvIndex: 1, usAqi: 154 }))
+    // The exact check a user can do against the tooltip. Non-trivial gust so
+    // the wind multiplier isn't a silent ×1.
+    const s = scoreHour(
+      hour({ tempF: 83, dewPointF: 63, precipProb: 7, uvIndex: 1, gustMph: 14, usAqi: 154 }),
+    )
     const multiplied =
-      s.factors.temp * s.factors.dewPoint * s.factors.precip * s.factors.uv * (s.factors.aqi ?? 1)
+      s.factors.temp *
+      s.factors.dewPoint *
+      s.factors.precip *
+      s.factors.uv *
+      s.factors.wind *
+      (s.factors.aqi ?? 1)
     expect(s.product).toBeCloseTo(multiplied, 10)
     expect(s.display).toBe(Math.round(multiplied * 100))
   })

@@ -42,6 +42,10 @@ export interface WeatherSeries {
   precipProb: (number | null)[]
   /** UV index, unitless 0-11+ scale. */
   uvIndex: (number | null)[]
+  /** Sustained wind at 10 m, mph. */
+  windMph: (number | null)[]
+  /** Peak gust of the preceding hour at 10 m, mph. */
+  gustMph: (number | null)[]
   /** 1 = daylight, 0 = night (the API uses numbers, not booleans). */
   isDay: (number | null)[]
   /** The location's offset from UTC — lets us compute "now" in its clock. */
@@ -74,6 +78,11 @@ export interface HourData {
   /** Precipitation probability, 0-100 (a percentage, not a fraction). */
   precipProb: number
   uvIndex: number
+  /** Sustained wind, mph. */
+  windMph: number
+  /** Peak gust of the preceding hour, mph — scoring uses whichever of
+   * windMph/gustMph is worse. */
+  gustMph: number
   /** US AQI, or null when the AQI forecast doesn't cover this hour. */
   usAqi: number | null
   isDay: boolean
@@ -86,6 +95,7 @@ export interface FactorScores {
   precip: number
   temp: number
   uv: number
+  wind: number
 }
 
 /**

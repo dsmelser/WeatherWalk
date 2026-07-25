@@ -52,9 +52,12 @@ async function requestForecast(latStr: string, lonStr: string): Promise<WeatherS
   const params = new URLSearchParams({
     latitude: latStr,
     longitude: lonStr,
-    hourly: 'temperature_2m,dew_point_2m,precipitation_probability,uv_index,is_day',
+    hourly: 'temperature_2m,dew_point_2m,precipitation_probability,uv_index,wind_speed_10m,wind_gusts_10m,is_day',
     forecast_days: '4',
     temperature_unit: 'fahrenheit',
+    // Covers both wind variables; without it the API returns km/h and every
+    // wind factor would be judged ~1.6× too harsh.
+    wind_speed_unit: 'mph',
     timezone: 'auto',
   })
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
@@ -76,6 +79,8 @@ async function requestForecast(latStr: string, lonStr: string): Promise<WeatherS
     dewPointF: h.dew_point_2m,
     precipProb: h.precipitation_probability,
     uvIndex: h.uv_index,
+    windMph: h.wind_speed_10m,
+    gustMph: h.wind_gusts_10m,
     isDay: h.is_day,
     // [modern] `??` keeps a legitimate 0 offset (UTC) — `|| 0` would too,
     // but `??` says precisely "default only when missing".
@@ -89,20 +94,22 @@ async function requestForecast(latStr: string, lonStr: string): Promise<WeatherS
  * RESHAPED WeatherSeries (a hit skips the reshaping too), so this matches
  * our own type, not the raw API payload — and it checks deeper than a live
  * response ever gets checked, deliberately: a cached entry could be
- * corrupted or written by a different app version. ALL five value arrays
+ * corrupted or written by a different app version. ALL seven value arrays
  * must align with time[] (mergeSeries indexes every one of them — a
  * missing array would crash the pipeline and be re-served on every Retry
  * until the TTL expired), and every element must be number|null, because
  * merge's `== null` guard drops holes but would wave a string straight
- * into the scores. A rejected entry is simply a miss: refetch. [modern]
- * The `data is WeatherSeries` return type is a type predicate — see
- * docs/MODERN-JS-PRIMER.md.
+ * into the scores. An entry cached by a pre-wind version of the app lacks
+ * the wind arrays and is rejected here too — a one-time refetch per
+ * location, not a loop. A rejected entry is simply a miss: refetch.
+ * [modern] The `data is WeatherSeries` return type is a type predicate —
+ * see docs/MODERN-JS-PRIMER.md.
  */
 function isWeatherSeries(data: unknown): data is WeatherSeries {
   const d = data as Partial<WeatherSeries> | null
   if (!d || !Array.isArray(d.time) || d.time.length === 0) return false
   const time = d.time
-  const hourly = [d.tempF, d.dewPointF, d.precipProb, d.uvIndex, d.isDay]
+  const hourly = [d.tempF, d.dewPointF, d.precipProb, d.uvIndex, d.windMph, d.gustMph, d.isDay]
   return (
     time.every((t) => typeof t === 'string') &&
     hourly.every((a) => isNullableNumberArray(a) && a.length === time.length) &&

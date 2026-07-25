@@ -2,11 +2,11 @@
 
 Enter a US ZIP code, get the best hours to go for a walk in the next 72 hours.
 
-Every hour gets a walkability score built **multiplicatively** from five factors —
-US AQI, dew point, precipitation probability, temperature, and UV index — so one
-genuinely bad factor (hazardous air, dangerous heat) sinks the hour, while several
-mildly imperfect factors only dent it. The app shows the next good time, an
-hourly chart, and the walk windows in time order with per-factor breakdowns.
+Every hour gets a walkability score built **multiplicatively** from six factors —
+US AQI, dew point, precipitation probability, temperature, UV index, and wind —
+so one genuinely bad factor (hazardous air, dangerous heat) sinks the hour, while
+several mildly imperfect factors only dent it. The app shows the next good time,
+an hourly chart, and the walk windows in time order with per-factor breakdowns.
 
 Fully static and client-side: the browser talks directly to free, no-key APIs.
 
@@ -23,7 +23,8 @@ this repo uses, with pointers to where each appears. Comments tagged
 ## Data sources
 
 - **Weather** — [Open-Meteo forecast API](https://open-meteo.com/en/docs) (hourly
-  temperature, dew point, precipitation probability, UV index; CC-BY 4.0)
+  temperature, dew point, precipitation probability, UV index, wind speed and
+  gusts; CC-BY 4.0)
 - **Air quality** — [Open-Meteo air quality API](https://open-meteo.com/en/docs/air-quality-api)
   (hourly US AQI; ~4–5 day model horizon, later hours degrade to 4-factor scores)
 - **ZIP → coordinates** — [Zippopotam.us](https://www.zippopotam.us/), with the
@@ -41,6 +42,11 @@ judged in isolation (`src/core/scoring.ts`):
 - **Temperature** — an asymmetric bell around 71 °F. The cold side is wider
   than the hot side (clothing fixes cold; nothing fixes heat): 55 °F ≈ ×0.77,
   45 °F ≈ ×0.50, freezing ≈ ×0.21; 80 °F ≈ ×0.79, 90 °F ≈ ×0.34.
+- **Wind** — an asymmetric bell around a light ~4 mph breeze, judged on the
+  worse of sustained wind and gusts (both blow you around the same way):
+  dead calm ≈ ×0.91 (still air reads as stuffy), ×0.5 near 18 mph (the
+  pedestrian-comfort walking ceiling), ×0.22 at 25 mph (umbrellas fail),
+  ×0.07 by 32 mph (hard to walk against).
 - **Dew point, AQI, UV** — logistic drop-offs: comfort ≈ 1 at the harmless
   end, 50% at a midpoint (dew 68 °F, AQI 150, UV 7), with a per-factor
   softness controlling how fast it falls.
@@ -51,8 +57,9 @@ The per-hour score is literally the product of the sub-scores ×100 — the
 ×multipliers shown in a tooltip's factor breakdown multiply to the score, and
 the quality bands are plain thresholds on it (≥ 75 excellent, ≥ 50 good,
 ≥ 30 fair, ≥ 10 poor). Exact zeros are reserved for hazards (AQI ≥ 301,
-temperature ≤ −10 °F or ≥ 105 °F) and certain rain. Night hours are marked
-visually but not penalized.
+temperature ≤ −10 °F or ≥ 105 °F, wind or gusts ≥ 40 mph — the NWS High Wind
+Warning threshold) and certain rain. Night hours are marked visually but not
+penalized.
 
 ## Develop
 

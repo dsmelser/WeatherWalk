@@ -25,13 +25,13 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
 
   const thead = document.createElement('thead')
   const headRow = document.createElement('tr')
-  const headers = ['Hour', 'Score', 'Rating', 'Temp °F', 'Dew pt °F', 'Rain %', 'UV', 'AQI', 'Night']
+  const headers = ['Hour', 'Score', 'Rating', 'Temp °F', 'Dew pt °F', 'Wind mph', 'Gust mph', 'Rain %', 'UV', 'AQI', 'Night']
   headers.forEach((h, i) => {
     const th = document.createElement('th')
     th.textContent = h
-    // Same 1-7 rule as the data cells below — a numeric column's header
+    // Same 1-9 rule as the data cells below — a numeric column's header
     // right-aligns so it sits over its right-aligned values.
-    if (i > 0 && i < 8) th.className = 'num'
+    if (i > 0 && i < 10) th.className = 'num'
     headRow.append(th)
   })
   thead.append(headRow)
@@ -46,6 +46,8 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
       qualityBand(h.product),
       String(Math.round(h.tempF)),
       String(Math.round(h.dewPointF)),
+      String(Math.round(h.windMph)),
+      String(Math.round(h.gustMph)),
       String(Math.round(h.precipProb)),
       String(Math.round(h.uvIndex)),
       h.usAqi == null ? '—' : String(Math.round(h.usAqi)),
@@ -54,8 +56,8 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
     cells.forEach((c, i) => {
       const td = document.createElement('td')
       td.textContent = c
-      // Columns 1-7 are numeric — .num right-aligns them with tabular digits.
-      if (i > 0 && i < 8) td.className = 'num'
+      // Columns 1-9 are numeric — .num right-aligns them with tabular digits.
+      if (i > 0 && i < 10) td.className = 'num'
       tr.append(td)
     })
     tbody.append(tr)

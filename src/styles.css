@@ -679,8 +679,8 @@ body {
 }
 .settings-grid {
   display: grid;
-  /* As many ~230px columns as fit — four groups side by side on desktop,
-     stacking toward one column as the viewport narrows. */
+  /* As many ~230px columns as fit — the five groups sit side by side on
+     desktop, stacking toward one column as the viewport narrows. */
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 8px 18px;
   margin-top: 8px;

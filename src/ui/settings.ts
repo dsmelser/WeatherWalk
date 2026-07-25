@@ -3,10 +3,12 @@ import {
   AQI_HAZARD,
   TEMP_HAZARD_HIGH,
   TEMP_HAZARD_LOW,
+  WIND_HAZARD,
   aqiFactor,
   dewFactor,
   tempFactor,
   uvFactor,
+  windFactor,
 } from '../core/scoring'
 import {
   BELL_FNS,
@@ -16,6 +18,7 @@ import {
   SETTING_SPECS,
   defaultParams,
   getParam,
+  isBellGroup,
   isDefaultParams,
   setFn,
   setParam,
@@ -99,6 +102,22 @@ const PREVIEWS: Record<(typeof GROUPS)[number], CurveSpec> = {
       { at: 11, tick: '11', label: 'extreme 11' },
     ],
   },
+  // The x-axis is the EFFECTIVE wind — the worse of sustained and gusts.
+  // Refs: preferred light breeze (thermal-comfort studies), the Lawson
+  // pedestrian walking-comfort ceiling, and two Beaufort landmarks.
+  wind: {
+    min: 0,
+    max: 50,
+    unit: ' mph',
+    refs: [
+      { at: 4, tick: '4', label: 'light breeze 4' },
+      { at: 18, tick: '18', label: 'walk limit 18' },
+      { at: 25, tick: '25', label: 'strong breeze 25' },
+      { at: 32, tick: '32', label: 'hard to walk 32' },
+    ],
+    hazards: [[WIND_HAZARD, 50]],
+    hazardLabel: `high wind ${WIND_HAZARD}+`,
+  },
 }
 
 export function renderSettings(
@@ -145,16 +164,18 @@ export function renderSettings(
   const evalFor = (group: (typeof GROUPS)[number]) => (x: number) =>
     group === 'temp'
       ? tempFactor(x, params.temp)
-      : group === 'dew'
-        ? dewFactor(x, params.dew)
-        : group === 'aqi'
-          ? aqiFactor(x, params.aqi)
-          : uvFactor(x, params.uv)
+      : group === 'wind'
+        ? windFactor(x, params.wind)
+        : group === 'dew'
+          ? dewFactor(x, params.dew)
+          : group === 'aqi'
+            ? aqiFactor(x, params.aqi)
+            : uvFactor(x, params.uv)
 
   /** Re-sync one group's derived UI: blurb, softness lock, preview. */
   function refreshGroup(group: (typeof GROUPS)[number]): void {
     const fn = params[group].fn
-    const options = group === 'temp' ? BELL_FNS : DROP_FNS
+    const options = isBellGroup(group) ? BELL_FNS : DROP_FNS
     const blurb = blurbs.get(group)
     // [modern] `?.`/`??` — a missing blurb node or unknown fn just means
     // empty text, not a crash. See docs/MODERN-JS-PRIMER.md.
@@ -189,7 +210,7 @@ export function renderSettings(
     fnLabel.textContent = 'curve shape'
     const select = document.createElement('select')
     select.className = 'settings-fn'
-    for (const opt of group === 'temp' ? BELL_FNS : DROP_FNS) {
+    for (const opt of isBellGroup(group) ? BELL_FNS : DROP_FNS) {
       const option = document.createElement('option')
       option.value = opt.fn
       option.textContent = opt.label
