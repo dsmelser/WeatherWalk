@@ -29,9 +29,10 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
   headers.forEach((h, i) => {
     const th = document.createElement('th')
     th.textContent = h
-    // Same 1-9 rule as the data cells below — a numeric column's header
-    // right-aligns so it sits over its right-aligned values.
-    if (i > 0 && i < 10) th.className = 'num'
+    // Same rule as the data cells below — a numeric column's header
+    // right-aligns so it sits over its right-aligned values. Rating (2)
+    // holds words, and Night (10) an emoji, so both stay left-aligned.
+    if (i > 0 && i < 10 && i !== 2) th.className = 'num'
     headRow.append(th)
   })
   thead.append(headRow)
@@ -56,8 +57,9 @@ export function renderTable(hours: ScoredHour[]): HTMLElement {
     cells.forEach((c, i) => {
       const td = document.createElement('td')
       td.textContent = c
-      // Columns 1-9 are numeric — .num right-aligns them with tabular digits.
-      if (i > 0 && i < 10) td.className = 'num'
+      // The numeric columns (Score and the measures, not the Rating words)
+      // get .num — right-aligned with tabular digits.
+      if (i > 0 && i < 10 && i !== 2) td.className = 'num'
       tr.append(td)
     })
     tbody.append(tr)
