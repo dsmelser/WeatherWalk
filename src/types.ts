@@ -39,15 +39,16 @@ export interface WeatherSeries {
   time: string[]
   tempF: (number | null)[]
   dewPointF: (number | null)[]
+  /** Probability of rain in the PRECEDING hour, 0-100 (raw API convention —
+   * mergeSeries reads slot i+1 so each merged hour carries the probability
+   * for its own hour). */
   precipProb: (number | null)[]
   /** UV index, unitless 0-11+ scale. */
   uvIndex: (number | null)[]
   /** Sustained wind at 10 m, mph. */
   windMph: (number | null)[]
-  /** Peak gust of the preceding hour at 10 m, mph. Paired with its own
-   * timestamp's hour like every other variable — the same convention the
-   * app already uses for precipProb, which shares the preceding-hour
-   * semantics — so a hazard gust registers on the following hour's score. */
+  /** Peak gust of the PRECEDING hour at 10 m, mph (raw API convention —
+   * realigned by mergeSeries the same way as precipProb). */
   gustMph: (number | null)[]
   /** 1 = daylight, 0 = night (the API uses numbers, not booleans). */
   isDay: (number | null)[]
@@ -67,10 +68,12 @@ export interface AirQualitySeries {
 }
 
 /**
- * One merged forecast hour. `ts` is a location-local ISO string like
- * "2026-07-17T14:00" with no UTC offset — compare as a string, never
- * parse with `new Date(ts)` (the browser would read it in ITS timezone).
- * This is the codebase's central rule; see src/core/time.ts.
+ * One merged forecast hour, describing conditions DURING [ts, ts+1h) — the
+ * hour a walk starting at ts happens in (mergeSeries realigns the API's
+ * preceding-hour variables to make that true). `ts` is a location-local ISO
+ * string like "2026-07-17T14:00" with no UTC offset — compare as a string,
+ * never parse with `new Date(ts)` (the browser would read it in ITS
+ * timezone). This is the codebase's central rule; see src/core/time.ts.
  */
 export interface HourData {
   ts: string
@@ -78,12 +81,13 @@ export interface HourData {
   tempF: number
   /** Dew point in °F — the humidity measure the scoring uses. */
   dewPointF: number
-  /** Precipitation probability, 0-100 (a percentage, not a fraction). */
+  /** Probability of rain during this hour, 0-100 (a percentage, not a
+   * fraction). */
   precipProb: number
   uvIndex: number
   /** Sustained wind, mph. */
   windMph: number
-  /** Peak gust of the preceding hour, mph — scoring uses whichever of
+  /** Peak gust during this hour, mph — scoring uses whichever of
    * windMph/gustMph is worse. */
   gustMph: number
   /** US AQI, or null when the AQI forecast doesn't cover this hour. */

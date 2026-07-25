@@ -8,6 +8,14 @@ import type { AirQualitySeries, HourData, WeatherSeries } from '../types'
  * air-quality series, or with a null AQI (the model's ~4-5 day horizon ends
  * before the requested days), get usAqi: null and are scored on 5 factors.
  * Hours missing any core weather value are dropped entirely.
+ *
+ * Hour alignment: a merged HourData describes the hour STARTING at its
+ * timestamp — how the walk will feel DURING [ts, ts+1h). Instant variables
+ * (temperature, dew point, UV, sustained wind, is_day) are sampled at ts and
+ * used as-is, but the API's precipitation probability and gust max describe
+ * the PRECEDING hour, so the value covering [ts, ts+1h) is the one reported
+ * at ts+1h — hence the [i + 1] reads below. The final series hour has no
+ * successor and is dropped by the null guard.
  */
 export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null): HourData[] {
   // Index the AQI series by timestamp so each weather hour joins in O(1) —
@@ -26,10 +34,13 @@ export function mergeSeries(weather: WeatherSeries, air: AirQualitySeries | null
     // `weather.tempF[i]` inline wouldn't narrow across later uses.
     const tempF = weather.tempF[i]
     const dewPointF = weather.dewPointF[i]
-    const precipProb = weather.precipProb[i]
     const uvIndex = weather.uvIndex[i]
     const windMph = weather.windMph[i]
-    const gustMph = weather.gustMph[i]
+    // Preceding-hour variables: read the NEXT slot, which covers this row's
+    // hour (see the alignment note above). `?? null` turns an off-the-end
+    // undefined into the null the guard below already handles.
+    const precipProb = weather.precipProb[i + 1] ?? null
+    const gustMph = weather.gustMph[i + 1] ?? null
     // An hour missing ANY core weather value can't be scored honestly, so it
     // is dropped — downstream, sliceNext72h still bounds by wall clock and
     // walkWindows refuses to span the gap, so a dropped hour never causes a
