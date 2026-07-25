@@ -63,7 +63,7 @@ describe('mergeSeries', () => {
     expect(merged.map((h) => h.windMph)).toEqual([5, 5])
   })
 
-  it('null AQI tail becomes usAqi: null without dropping hours', () => {
+  it('a null AQI tail becomes usAqi: null rather than dropping those hours', () => {
     const time = hourly('2026-07-17T00:00', 4)
     const air: AirQualitySeries = { time, usAqi: [40, 41, null, null] }
     const merged = mergeSeries(weather(time), air)
