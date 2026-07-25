@@ -35,7 +35,9 @@ Everything the app does is one straight line, orchestrated by `run()` in
   entry up to 6h old is served instead of the error.)
                  ▼
   mergeSeries()                        src/core/merge.ts
-  join the two series by timestamp string; drop incomplete hours
+  join the two series by timestamp string; align preceding-hour
+  variables (rain probability, gusts) to the hour they describe;
+  drop incomplete hours
         │  HourData[]
         ▼
   sliceNext72h()                       src/core/merge.ts
@@ -80,9 +82,11 @@ All defined in `src/types.ts`:
    before the requested range, leaving a null tail.
 2. **`HourData`** — one merged hour: timestamp plus the seven inputs
    (`tempF`, `dewPointF`, `precipProb`, `uvIndex`, `windMph`, `gustMph`,
-   `usAqi`) and `isDay`. `usAqi` stays nullable; everything else is
-   guaranteed present (hours missing a core weather value are dropped in
-   the merge).
+   `usAqi`) and `isDay`, all describing conditions DURING the hour starting
+   at the timestamp (the merge realigns the API's preceding-hour variables
+   — rain probability and gusts — by one slot to make that true). `usAqi`
+   stays nullable; everything else is guaranteed present (hours missing a
+   core weather value are dropped in the merge).
 3. **`ScoredHour`** — `HourData` plus `factors` (each factor's [0,1]
    sub-score), their `product`, and `display` (= round(product × 100), what
    the UI shows).

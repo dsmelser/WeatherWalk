@@ -40,25 +40,41 @@ describe('mergeSeries', () => {
     const time = hourly('2026-07-17T00:00', 5)
     const air: AirQualitySeries = { time, usAqi: [40, 41, 42, 43, 44] }
     const merged = mergeSeries(weather(time), air)
-    expect(merged).toHaveLength(5)
-    expect(merged.map((h) => h.usAqi)).toEqual([40, 41, 42, 43, 44])
+    // The final series hour has no successor slot to describe it, so 5
+    // timestamps merge to 4 scoreable hours.
+    expect(merged).toHaveLength(4)
+    expect(merged.map((h) => h.usAqi)).toEqual([40, 41, 42, 43])
     expect(merged[0].ts).toBe('2026-07-17T00:00')
     expect(merged[0].windMph).toBe(5)
     expect(merged[0].gustMph).toBe(9)
+  })
+
+  it('aligns preceding-hour values to the hour they describe', () => {
+    // The API reports rain probability and the gust max AT the END of the
+    // hour they cover, so a spike in slot 1 describes [t0, t1) — hour 0.
+    const time = hourly('2026-07-17T00:00', 3)
+    const w = weather(time, { precipProb: [0, 80, 0], gustMph: [0, 45, 0] })
+    const merged = mergeSeries(w, null)
+    expect(merged[0].precipProb).toBe(80)
+    expect(merged[0].gustMph).toBe(45)
+    expect(merged[1].precipProb).toBe(0)
+    expect(merged[1].gustMph).toBe(0)
+    // Instant variables stay with their own slot.
+    expect(merged.map((h) => h.windMph)).toEqual([5, 5])
   })
 
   it('null AQI tail becomes usAqi: null without dropping hours', () => {
     const time = hourly('2026-07-17T00:00', 4)
     const air: AirQualitySeries = { time, usAqi: [40, 41, null, null] }
     const merged = mergeSeries(weather(time), air)
-    expect(merged.map((h) => h.usAqi)).toEqual([40, 41, null, null])
+    expect(merged.map((h) => h.usAqi)).toEqual([40, 41, null])
   })
 
   it('air series shorter than weather leaves trailing hours with null AQI', () => {
     const time = hourly('2026-07-17T00:00', 6)
     const air: AirQualitySeries = { time: time.slice(0, 3), usAqi: [40, 41, 42] }
     const merged = mergeSeries(weather(time), air)
-    expect(merged.map((h) => h.usAqi)).toEqual([40, 41, 42, null, null, null])
+    expect(merged.map((h) => h.usAqi)).toEqual([40, 41, 42, null, null])
   })
 
   it('missing air series entirely gives all-null AQI', () => {
@@ -68,24 +84,25 @@ describe('mergeSeries', () => {
   })
 
   it('drops hours missing a core weather value', () => {
-    const time = hourly('2026-07-17T00:00', 3)
-    const w = weather(time, { uvIndex: [2, null, 2] })
+    const time = hourly('2026-07-17T00:00', 4)
+    const w = weather(time, { uvIndex: [2, null, 2, 2] })
     const merged = mergeSeries(w, null)
-    expect(merged).toHaveLength(2)
     expect(merged.map((h) => h.ts)).toEqual([time[0], time[2]])
   })
 
-  it('drops hours with a hole in either wind array', () => {
-    const time = hourly('2026-07-17T00:00', 3)
-    const noWind = mergeSeries(weather(time, { windMph: [5, null, 5] }), null)
+  it('drops hours with a hole in the wind arrays covering them', () => {
+    const time = hourly('2026-07-17T00:00', 4)
+    // Sustained wind is instant: a hole in slot 1 kills hour 1.
+    const noWind = mergeSeries(weather(time, { windMph: [5, null, 5, 5] }), null)
     expect(noWind.map((h) => h.ts)).toEqual([time[0], time[2]])
-    const noGust = mergeSeries(weather(time, { gustMph: [9, 9, null] }), null)
-    expect(noGust.map((h) => h.ts)).toEqual([time[0], time[1]])
+    // Gusts cover the preceding hour: a hole in slot 2 kills hour 1.
+    const noGust = mergeSeries(weather(time, { gustMph: [9, 9, null, 9] }), null)
+    expect(noGust.map((h) => h.ts)).toEqual([time[0], time[2]])
   })
 
   it('translates isDay to a boolean', () => {
-    const time = hourly('2026-07-17T00:00', 2)
-    const merged = mergeSeries(weather(time, { isDay: [0, 1] }), null)
+    const time = hourly('2026-07-17T00:00', 3)
+    const merged = mergeSeries(weather(time, { isDay: [0, 1, 1] }), null)
     expect(merged.map((h) => h.isDay)).toEqual([false, true])
   })
 })
@@ -135,8 +152,10 @@ describe('sliceNext72h', () => {
   })
 
   it('returns what remains when fewer than 72 hours are left', () => {
+    // 24 timestamps merge to 23 scoreable hours (the last has no successor),
+    // so from 20:00 only 20/21/22 remain.
     const hours = hoursFrom(hourly('2026-07-17T00:00', 24))
-    expect(sliceNext72h(hours, '2026-07-17T20:00')).toHaveLength(4)
+    expect(sliceNext72h(hours, '2026-07-17T20:00')).toHaveLength(3)
   })
 
   it('bounds by wall clock, not entry count, when hours were dropped', () => {
