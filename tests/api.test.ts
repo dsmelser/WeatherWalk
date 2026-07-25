@@ -243,6 +243,17 @@ describe('response caching', () => {
     expect(w.tempF).toEqual([70]) // the fresh response
   })
 
+  it('treats non-finite numbers in a cached entry as a miss', async () => {
+    // JSON.stringify can never write Infinity, but JSON.parse produces it
+    // from an overflow literal (1e309) — so edit the raw stored string.
+    seedForecast(0)
+    localStorage.setItem(wxKey, localStorage.getItem(wxKey)!.replace('[55]', '[1e309]'))
+    const cap = captureFetch(forecastBody)
+    const w = await fetchForecast(39.29, -76.61)
+    expect(cap.calls()).toBe(1)
+    expect(w.tempF).toEqual([70])
+  })
+
   it('treats a cached entry whose arrays disagree with time[] as a miss', async () => {
     seedForecast(0)
     corruptEntry(wxKey, (data) => {

@@ -173,15 +173,17 @@ function prune(prefix: string, maxAgeMs: number): void {
 }
 
 /**
- * Every element is a number or null — the shape of Open-Meteo's hourly
- * value arrays, shared by both cache-entry validators (forecast.ts,
+ * Every element is a FINITE number or null — the shape of Open-Meteo's
+ * hourly value arrays, shared by both cache-entry validators (forecast.ts,
  * airQuality.ts). The element-level depth matters: mergeSeries's `== null`
  * guard drops holes in an array, but a string would sail through it and
- * corrupt the scores. A cached entry is the one input the API contract
- * doesn't vouch for, so it gets checked harder than a live response.
+ * corrupt the scores. Finiteness matters too: JSON.stringify can never
+ * write Infinity, but JSON.parse happily produces it from an overflow
+ * literal like 1e309, so a corrupted entry could smuggle one in.
+ * (Number.isFinite is also the number test — it's false for non-numbers.)
  */
 export function isNullableNumberArray(a: unknown): a is (number | null)[] {
-  return Array.isArray(a) && a.every((v) => v === null || typeof v === 'number')
+  return Array.isArray(a) && a.every((v) => v === null || Number.isFinite(v))
 }
 
 /** The stored entry's timestamp, or null if the value isn't a valid entry. */
