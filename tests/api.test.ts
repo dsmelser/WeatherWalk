@@ -254,7 +254,7 @@ describe('response caching', () => {
   })
 
   // The stale-fallback wiring must hold for BOTH fetchers — losing
-  // maxStaleMs on the AQI side would silently degrade the app to 4-factor
+  // maxStaleMs on the AQI side would silently degrade the app to 5-factor
   // scoring on every network blip despite a usable cached series.
   function seedAqi(ageMs: number): void {
     const series = { time: ['2026-07-17T00:00'], usAqi: [55] }

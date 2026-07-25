@@ -26,7 +26,7 @@ this repo uses, with pointers to where each appears. Comments tagged
   temperature, dew point, precipitation probability, UV index, wind speed and
   gusts; CC-BY 4.0)
 - **Air quality** — [Open-Meteo air quality API](https://open-meteo.com/en/docs/air-quality-api)
-  (hourly US AQI; ~4–5 day model horizon, later hours degrade to 4-factor scores)
+  (hourly US AQI; ~4–5 day model horizon, later hours degrade to 5-factor scores)
 - **ZIP → coordinates** — [Zippopotam.us](https://www.zippopotam.us/), with the
   Open-Meteo geocoder as fallback; results cached in localStorage
 

@@ -44,7 +44,10 @@ export interface WeatherSeries {
   uvIndex: (number | null)[]
   /** Sustained wind at 10 m, mph. */
   windMph: (number | null)[]
-  /** Peak gust of the preceding hour at 10 m, mph. */
+  /** Peak gust of the preceding hour at 10 m, mph. Paired with its own
+   * timestamp's hour like every other variable — the same convention the
+   * app already uses for precipProb, which shares the preceding-hour
+   * semantics — so a hazard gust registers on the following hour's score. */
   gustMph: (number | null)[]
   /** 1 = daylight, 0 = night (the API uses numbers, not booleans). */
   isDay: (number | null)[]
