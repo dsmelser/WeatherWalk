@@ -1,5 +1,5 @@
 import type { WeatherSeries } from '../types'
-import { cachedFetch } from './cache'
+import { cachedFetch, isNullableNumberArray } from './cache'
 
 /**
  * Hourly weather for the next 4 days (96 points) in the location's own
@@ -87,23 +87,25 @@ async function requestForecast(latStr: string, lonStr: string): Promise<WeatherS
 /**
  * Shape check for a cached entry before trusting it. The cache stores the
  * RESHAPED WeatherSeries (a hit skips the reshaping too), so this matches
- * our own type, not the raw API payload. ALL five value arrays must be
- * present because mergeSeries indexes every one of them unconditionally —
- * a partial entry (say, written by a different app version) would crash
- * the pipeline and, worse, keep being re-served on every Retry until the
- * TTL expired. [modern] The `data is WeatherSeries` return type is a type
- * predicate — see docs/MODERN-JS-PRIMER.md.
+ * our own type, not the raw API payload — and it checks deeper than a live
+ * response ever gets checked, deliberately: a cached entry could be
+ * corrupted or written by a different app version. ALL five value arrays
+ * must align with time[] (mergeSeries indexes every one of them — a
+ * missing array would crash the pipeline and be re-served on every Retry
+ * until the TTL expired), and every element must be number|null, because
+ * merge's `== null` guard drops holes but would wave a string straight
+ * into the scores. A rejected entry is simply a miss: refetch. [modern]
+ * The `data is WeatherSeries` return type is a type predicate — see
+ * docs/MODERN-JS-PRIMER.md.
  */
 function isWeatherSeries(data: unknown): data is WeatherSeries {
   const d = data as Partial<WeatherSeries> | null
+  if (!d || !Array.isArray(d.time) || d.time.length === 0) return false
+  const time = d.time
+  const hourly = [d.tempF, d.dewPointF, d.precipProb, d.uvIndex, d.isDay]
   return (
-    Array.isArray(d?.time) &&
-    d.time.length > 0 &&
-    Array.isArray(d.tempF) &&
-    Array.isArray(d.dewPointF) &&
-    Array.isArray(d.precipProb) &&
-    Array.isArray(d.uvIndex) &&
-    Array.isArray(d.isDay) &&
+    time.every((t) => typeof t === 'string') &&
+    hourly.every((a) => isNullableNumberArray(a) && a.length === time.length) &&
     typeof d.utcOffsetSeconds === 'number' &&
     typeof d.timezone === 'string'
   )

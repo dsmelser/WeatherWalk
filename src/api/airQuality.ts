@@ -1,5 +1,5 @@
 import type { AirQualitySeries } from '../types'
-import { cachedFetch } from './cache'
+import { cachedFetch, isNullableNumberArray } from './cache'
 
 /**
  * Hourly US AQI on the same local-time hourly grid as the weather API.
@@ -50,9 +50,17 @@ async function requestAirQuality(latStr: string, lonStr: string): Promise<AirQua
   return { time: h.time, usAqi: h.us_aqi }
 }
 
-/** Shallow shape check for a cached entry — our reshaped type, not the raw
- * API payload. See isWeatherSeries in forecast.ts. */
+/** Shape check for a cached entry — our reshaped type, not the raw API
+ * payload, checked to the same depth as isWeatherSeries in forecast.ts:
+ * usAqi must align with time[] and hold only number|null elements (null is
+ * legitimate — the CAMS model's tail is null by design), because junk
+ * values would flow through merge into the scores rather than fail. */
 function isAirQualitySeries(data: unknown): data is AirQualitySeries {
   const d = data as Partial<AirQualitySeries> | null
-  return Array.isArray(d?.time) && d.time.length > 0 && Array.isArray(d.usAqi)
+  if (!d || !Array.isArray(d.time) || d.time.length === 0) return false
+  return (
+    d.time.every((t) => typeof t === 'string') &&
+    isNullableNumberArray(d.usAqi) &&
+    d.usAqi.length === d.time.length
+  )
 }

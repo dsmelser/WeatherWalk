@@ -223,6 +223,59 @@ describe('response caching', () => {
     await expect(fetchAirQuality(39.29, -76.61)).rejects.toThrow(/network down/)
   })
 
+  /** Rewrite one field of an already-seeded entry, keeping the envelope. */
+  function corruptEntry(key: string, mutate: (data: Record<string, unknown>) => void): void {
+    const entry = JSON.parse(localStorage.getItem(key)!)
+    mutate(entry.data)
+    localStorage.setItem(key, JSON.stringify(entry))
+  }
+
+  it('treats junk element types in a cached entry as a miss', async () => {
+    // merge's `== null` guard drops holes but would wave a string straight
+    // into the scores — the validator must catch element-level corruption.
+    seedForecast(0)
+    corruptEntry(wxKey, (data) => {
+      data.tempF = ['72'] // right length, wrong element type
+    })
+    const cap = captureFetch(forecastBody)
+    const w = await fetchForecast(39.29, -76.61)
+    expect(cap.calls()).toBe(1)
+    expect(w.tempF).toEqual([70]) // the fresh response
+  })
+
+  it('treats a cached entry whose arrays disagree with time[] as a miss', async () => {
+    seedForecast(0)
+    corruptEntry(wxKey, (data) => {
+      data.uvIndex = [] // shorter than time[]
+    })
+    const cap = captureFetch(forecastBody)
+    await fetchForecast(39.29, -76.61)
+    expect(cap.calls()).toBe(1)
+  })
+
+  it('treats junk element types in a cached AQI entry as a miss', async () => {
+    seedAqi(0)
+    corruptEntry('ww:aqi:39.2900,-76.6100', (data) => {
+      data.usAqi = ['moderate']
+    })
+    const cap = captureFetch(airBody)
+    const air = await fetchAirQuality(39.29, -76.61)
+    expect(cap.calls()).toBe(1)
+    expect(air.usAqi).toEqual([42])
+  })
+
+  it('accepts null elements in cached arrays (the AQI tail is null by design)', async () => {
+    seedAqi(0)
+    corruptEntry('ww:aqi:39.2900,-76.6100', (data) => {
+      data.time = ['2026-07-17T00:00', '2026-07-17T01:00']
+      data.usAqi = [55, null]
+    })
+    const cap = captureFetch(airBody)
+    const air = await fetchAirQuality(39.29, -76.61)
+    expect(cap.calls()).toBe(0) // served from cache — nulls must not over-reject
+    expect(air.usAqi).toEqual([55, null])
+  })
+
   it('still fetches normally when every localStorage call throws', async () => {
     vi.stubGlobal('localStorage', throwingStorage())
     const cap = captureFetch(forecastBody)
